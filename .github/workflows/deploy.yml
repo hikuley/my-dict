@@ -32,9 +32,12 @@ jobs:
             --exclude='infra' \
             --exclude='.github' \
             --exclude='.env' \
+            --exclude='.gradle' \
+            --exclude='my-dict-api/build' \
             docker-compose.yml \
             docker.sh \
-            my-dict-react/
+            my-dict-react/ \
+            my-dict-api/
 
       - name: Setup SSH key
         run: |

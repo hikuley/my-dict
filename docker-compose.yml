@@ -53,24 +53,9 @@ services:
       timeout: 5s
       retries: 10
 
-  flyway:
-    image: flyway/flyway:10
-    logging:
-      driver: awslogs
-      options:
-        awslogs-region: ${AWS_REGION}
-        awslogs-group: /my-dict
-        awslogs-stream: flyway
-    command: -url=jdbc:postgresql://db:5432/mydict -user=mydict -password=mydict -locations=filesystem:/flyway/sql -connectRetries=5 migrate
-    volumes:
-      - ./my-dict-react/server/db/migrations:/flyway/sql:ro
-    depends_on:
-      db:
-        condition: service_healthy
-
   api:
     build:
-      context: ./my-dict-react/server
+      context: ./my-dict-api
     restart: unless-stopped
     logging:
       driver: awslogs
@@ -79,7 +64,9 @@ services:
         awslogs-group: /my-dict
         awslogs-stream: api
     environment:
-      DATABASE_URL: postgresql://mydict:mydict@db:5432/mydict
+      DATABASE_URL: jdbc:postgresql://db:5432/mydict
+      DB_USER: mydict
+      DB_PASSWORD: mydict
       PORT: "3001"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       KAFKA_BROKER: kafka:9092
@@ -88,8 +75,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      flyway:
-        condition: service_completed_successfully
       kafka:
         condition: service_healthy
 
