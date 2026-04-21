@@ -11,19 +11,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: my-dict-react/package-lock.json
-
-      - name: Build frontend
-        run: |
-          cd my-dict-react
-          npm ci
-          npm run build
-
       - name: Create deploy package
         run: |
           tar czf /tmp/my-dict-deploy.tar.gz \
