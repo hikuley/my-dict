@@ -20,11 +20,11 @@ jobs:
             --exclude='.github' \
             --exclude='.env' \
             --exclude='.gradle' \
-            --exclude='my-dict-api/build' \
+            --exclude='backend/build' \
             docker-compose.yml \
             docker.sh \
-            my-dict-react/ \
-            my-dict-api/
+            frontend/ \
+            backend/
 
       - name: Setup SSH key
         run: |

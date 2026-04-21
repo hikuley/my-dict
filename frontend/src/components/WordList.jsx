@@ -15,10 +15,12 @@ import {
   selectPage,
   selectTotalPages,
   selectTotal,
+  selectWordsStatus,
   searchWords,
   clearSearch,
   selectSearchResults,
   selectSearchQuery,
+  selectSearchStatus,
   generateWord,
   resetGenerateStatus,
 } from '../store/wordsSlice';
@@ -37,8 +39,11 @@ const WordList = () => {
   const page = useSelector(selectPage);
   const totalPages = useSelector(selectTotalPages);
   const total = useSelector(selectTotal);
+  const wordsStatus = useSelector(selectWordsStatus);
+  const searchStatus = useSelector(selectSearchStatus);
 
   const isSearching = searchQuery.length >= 2;
+  const tableLoading = isSearching ? searchStatus === 'loading' : wordsStatus === 'loading';
   const displayWords = isSearching ? searchResults : words;
 
   const searchInputRef = useRef(null);
@@ -297,6 +302,7 @@ const WordList = () => {
           />
           <Button
             icon={<SyncOutlined />}
+            loading={wordsStatus === 'loading'}
             onClick={() => dispatch(fetchWords({ page }))}
           >
             Refresh
@@ -318,6 +324,7 @@ const WordList = () => {
           columns={columns}
           rowKey="slug"
           pagination={false}
+          loading={tableLoading}
           size="middle"
           style={{ marginTop: 8 }}
           rowClassName={(record) => record.slug === selectedRowKey ? 'ant-table-row-selected' : ''}
@@ -343,14 +350,14 @@ const WordList = () => {
             <Button
               icon={<LeftOutlined />}
               size="small"
-              disabled={page <= 1}
+              disabled={page <= 1 || wordsStatus === 'loading'}
               onClick={() => dispatch(fetchWords({ page: page - 1 }))}
             />
             <Text>Page {page} / {totalPages}</Text>
             <Button
               icon={<RightOutlined />}
               size="small"
-              disabled={page >= totalPages}
+              disabled={page >= totalPages || wordsStatus === 'loading'}
               onClick={() => dispatch(fetchWords({ page: page + 1 }))}
             />
           </Space>

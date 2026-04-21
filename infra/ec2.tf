@@ -183,7 +183,6 @@ resource "null_resource" "deploy" {
   provisioner "local-exec" {
     command = <<-EOT
       cd ${path.module}/..
-      cd my-dict-react && npm run build && cd ..
       tar czf /tmp/my-dict-deploy.tar.gz \
         --exclude='.git' \
         --exclude='node_modules' \
@@ -191,9 +190,12 @@ resource "null_resource" "deploy" {
         --exclude='*.tfstate*' \
         --exclude='infra' \
         --exclude='.env' \
+        --exclude='.gradle' \
+        --exclude='backend/build' \
         docker-compose.yml \
         docker.sh \
-        my-dict-react/
+        frontend/ \
+        backend/
     EOT
   }
 

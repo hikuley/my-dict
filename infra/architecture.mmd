@@ -9,11 +9,10 @@ graph TB
             
             subgraph EC2["EC2 Instance (t3.micro)\nAmazon Linux 2023 · 20GB gp3 · 1GB RAM + 1GB Swap"]
                 subgraph Docker["Docker Compose"]
-                    Web["🖥️ web\nnginx:alpine\nPort 3000→80"]
-                    API["⚙️ api\nNode.js 20\nPort 3001"]
+                    Web["🖥️ web\nnginx:alpine\n(multi-stage build)\nPort 3000→80"]
+                    API["⚙️ api\nKotlin 1.9 + Spring Boot 3.3\nJRE 21 Alpine\nPort 3001"]
                     DB["🗄️ db\nPostgreSQL 16\nPort 5432"]
                     Kafka["📨 kafka\nApache Kafka 3.9\nKRaft mode"]
-                    Flyway["🔄 flyway\nDB migrations\n(runs once)"]
                 end
             end
 
@@ -34,7 +33,7 @@ graph TB
     API -->|"produce\nword-generate"| Kafka
     Kafka -->|"consume\nword-generate"| API
     API -->|"generate word\nclaude-sonnet-4-6"| Claude
-    Flyway -->|"migrations\n+ seed data"| DB
+    API -->|"Flyway migrations\n+ seed data"| DB
 
     style AWS fill:#f0f4ff,stroke:#2563eb,stroke-width:2px
     style EC2 fill:#fef3c7,stroke:#d97706,stroke-width:2px
@@ -43,7 +42,6 @@ graph TB
     style API fill:#dbeafe,stroke:#2563eb
     style DB fill:#fce7f3,stroke:#db2777
     style Kafka fill:#fef9c3,stroke:#ca8a04
-    style Flyway fill:#f3e8ff,stroke:#9333ea
     style Claude fill:#ffe4e6,stroke:#e11d48
     style SG fill:#f1f5f9,stroke:#64748b
     style EIP fill:#ecfdf5,stroke:#059669

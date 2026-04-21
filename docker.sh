@@ -15,13 +15,6 @@ case "$1" in
     echo "Kafka is ready."
 
     echo ""
-    echo "Waiting for Flyway migrations to complete..."
-    # Flyway runs once and exits — wait for it to finish
-    docker compose wait flyway 2>/dev/null || true
-    echo "Flyway migrations done."
-    docker compose logs flyway 2>&1 | tail -5
-
-    echo ""
     echo "Waiting for API to be ready..."
     until docker compose ps api --format json 2>/dev/null | grep -q '"running"'; do
       sleep 2
@@ -34,24 +27,43 @@ case "$1" in
     echo "Kafka is running at localhost:9092"
     ;;
 
+  dev)
+    echo "Starting DB and Kafka for local development..."
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db kafka
+
+    echo ""
+    echo "Waiting for DB to be ready..."
+    until docker compose -f docker-compose.yml -f docker-compose.dev.yml ps db --format json 2>/dev/null | grep -q '"running"'; do
+      sleep 2
+    done
+    echo "DB is ready."
+
+    echo ""
+    echo "Waiting for Kafka to be ready..."
+    until docker compose -f docker-compose.yml -f docker-compose.dev.yml ps kafka --format json 2>/dev/null | grep -q '"running"'; do
+      sleep 2
+    done
+    echo "Kafka is ready."
+
+    echo ""
+    echo "PostgreSQL: localhost:5433 (user: mydict, password: mydict, db: mydict)"
+    echo "Kafka:      localhost:9092"
+    echo ""
+    echo "Run your API and frontend locally now."
+    ;;
+
   stop)
     echo "Stopping all services..."
-    docker compose down
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml down
     echo "All services stopped."
     ;;
 
-  migrate)
-    echo "Running Flyway migrations..."
-    docker compose up flyway
-    echo "Migrations complete."
-    ;;
-
   logs)
-    docker compose logs -f "${@:2}"
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f "${@:2}"
     ;;
 
   *)
-    echo "Usage: $0 {run|stop|migrate|logs}"
+    echo "Usage: $0 {run|dev|stop|logs}"
     exit 1
     ;;
 esac

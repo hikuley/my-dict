@@ -1,0 +1,23 @@
+services:
+  db:
+    logging:
+      driver: json-file
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  kafka:
+    logging:
+      driver: json-file
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+
+  api:
+    logging:
+      driver: json-file
+
+  web:
+    logging:
+      driver: json-file
+
+volumes:
+  pgdata:
