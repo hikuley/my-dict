@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="8" y="6" width="48" height="52" rx="4" fill="#2563eb"/>
+  <rect x="12" y="10" width="40" height="44" rx="2" fill="#fff"/>
+  <rect x="16" y="16" width="14" height="3" rx="1" fill="#2563eb"/>
+  <rect x="16" y="22" width="32" height="2" rx="1" fill="#e2e8f0"/>
+  <rect x="16" y="27" width="32" height="2" rx="1" fill="#e2e8f0"/>
+  <rect x="16" y="32" width="28" height="2" rx="1" fill="#e2e8f0"/>
+  <text x="16" y="46" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="#f59e0b">TR</text>
+  <text x="34" y="46" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="#2563eb">EN</text>
+  <rect x="6" y="12" width="4" height="40" rx="2" fill="#1d4ed8"/>
+</svg>

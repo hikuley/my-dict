@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+my-dict-react/dist/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup
+infra/*.tfvars
+infra/.terraform.lock.hcl
+infra/*.pem
+
+# Deploy artifacts
+/tmp/my-dict-deploy.tar.gz
