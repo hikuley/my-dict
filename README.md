@@ -1,0 +1,153 @@
+# My Dictionary
+
+An AI-powered dictionary app that generates detailed word definitions using Claude AI. Words are processed asynchronously via Kafka, with real-time progress updates over WebSocket.
+
+## Tech Stack
+
+### Backend
+
+| Technology | Version | Purpose |
+|---|---|---|
+| Kotlin | 1.9.25 | Language |
+| Spring Boot | 3.3.0 | Web framework |
+| Spring Data JPA | 3.3.0 | ORM / PostgreSQL with JSONB |
+| Spring Kafka | 3.2.0 | Async message processing |
+| Flyway | 10.10.0 | Database migrations |
+| OkHttp | 4.12.0 | Claude API HTTP client |
+| Gradle (Kotlin DSL) | 8.7 | Build system |
+| JDK | 17 | Runtime |
+
+### Frontend
+
+| Technology | Version | Purpose |
+|---|---|---|
+| React | 18 | UI framework |
+| Ant Design | 5.20+ | Component library |
+| Redux Toolkit | 2.x | State management |
+| Vite | 5 | Build tool / dev server |
+
+### Infrastructure
+
+| Technology | Purpose |
+|---|---|
+| PostgreSQL 16 | Database (JSONB sections, full-text search with GIN index) |
+| Apache Kafka 3.9 | Async word generation pipeline (KRaft mode, no Zookeeper) |
+| nginx | Reverse proxy + static file serving |
+| Docker Compose | Container orchestration |
+
+### Cloud (AWS eu-west-1)
+
+| Resource | Spec |
+|---|---|
+| EC2 | t3.micro (1 GB RAM + 1 GB swap) |
+| EBS | 30 GB gp3 (root) + 10 GB gp3 (PostgreSQL data) |
+| Elastic IP | Static public IP |
+| CloudWatch | Container log aggregation (14-day retention) |
+| Terraform | Infrastructure as Code |
+| GitHub Actions | CI/CD on push to `main` |
+
+## Architecture
+
+```
+User Browser
+    │
+    ▼ HTTP :3000
+┌─────────────────────────────────────────┐
+│  EC2 (Docker Compose)                   │
+│                                         │
+│  nginx ──▶ Spring Boot API ──▶ Claude   │
+│  :3000     :3001        │      (AI)     │
+│              │          │               │
+│              ▼          ▼               │
+│          PostgreSQL   Kafka             │
+│          :5432        :9092             │
+└─────────────────────────────────────────┘
+```
+
+**Request flow:**
+1. nginx serves the React SPA and proxies `/api/*` and `/ws` to the backend
+2. `POST /api/words/generate` publishes a message to Kafka topic `word-generate`
+3. Kafka consumer calls Claude API to generate the word definition
+4. Result is saved to PostgreSQL and broadcast via WebSocket (`word-ready`)
+
+## API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/words?page=&limit=` | Paginated word list |
+| `GET` | `/api/words/search?q=` | Full-text search (min 2 chars) |
+| `GET` | `/api/words/:slug` | Word detail with sections |
+| `POST` | `/api/words/generate` | Generate word via Claude AI (async, returns 202) |
+| `POST` | `/api/words` | Create word manually |
+| `DELETE` | `/api/words/:slug` | Delete a word |
+| `GET` | `/api/health` | Health check |
+| `WS` | `/ws` | WebSocket (word-processing, word-ready, word-error) |
+
+## Project Structure
+
+```
+my-dict/
+├── backend/                  # Kotlin + Spring Boot API
+│   ├── src/main/kotlin/com/mydict/
+│   │   ├── controller/       # REST endpoints
+│   │   ├── dto/              # Request/response DTOs
+│   │   ├── entity/           # JPA entities
+│   │   ├── kafka/            # Producer + consumer
+│   │   ├── repository/       # Spring Data JPA
+│   │   ├── service/          # Business logic + Claude integration
+│   │   ├── util/             # JSON parser for Claude responses
+│   │   └── websocket/        # WebSocket handler + config
+│   ├── src/main/resources/
+│   │   ├── application.yml
+│   │   ├── db/migration/     # Flyway SQL migrations
+│   │   └── prompts/          # Claude prompt template
+│   ├── build.gradle.kts
+│   └── Dockerfile
+├── frontend/                 # React SPA
+│   ├── src/
+│   │   ├── components/       # WordList, AddWordModal, WordDetailModal
+│   │   ├── hooks/            # useWebSocket, useProgressBars
+│   │   ├── store/            # Redux (wordsSlice)
+│   │   └── styles/
+│   ├── package.json
+│   └── Dockerfile            # Multi-stage: Node build → nginx
+├── infra/                    # Terraform (AWS)
+│   ├── ec2.tf
+│   ├── cloudwatch.tf
+│   └── architecture.mmd
+├── docker-compose.yml        # Production
+├── docker-compose.dev.yml    # Local dev overrides
+├── docker.sh                 # Helper script (run/dev/stop/logs)
+└── .github/workflows/
+    └── deploy.yml            # CI/CD: push to main → deploy to EC2
+```
+
+## Local Development
+
+```bash
+# Start DB and Kafka
+./docker.sh dev
+
+# Run backend (IntelliJ or CLI)
+cd backend && ./gradlew bootRun
+
+# Run frontend
+cd frontend && npm install && npm run dev
+```
+
+**Local ports:**
+- Frontend: http://localhost:5173 (Vite dev server, proxies API to :3001)
+- Backend: http://localhost:3001
+- PostgreSQL: localhost:5433
+- Kafka: localhost:9092
+
+## Production Deployment
+
+Every push to `main` triggers GitHub Actions which:
+1. Creates a tar package (frontend + backend source)
+2. Uploads to EC2 via SCP
+3. Runs `docker compose up -d --build --force-recreate`
+
+Docker builds happen on EC2:
+- **Frontend**: multi-stage (Node 20 build → nginx:alpine)
+- **Backend**: multi-stage (Gradle 8.7 + JDK 17 build → JRE 17 Alpine)
