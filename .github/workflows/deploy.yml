@@ -1,0 +1,61 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: my-dict-react/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd my-dict-react
+          npm ci
+          npm run build
+
+      - name: Create deploy package
+        run: |
+          tar czf /tmp/my-dict-deploy.tar.gz \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='infra' \
+            --exclude='.github' \
+            --exclude='.env' \
+            docker-compose.yml \
+            docker.sh \
+            my-dict-react/
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload and deploy
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            /tmp/my-dict-deploy.tar.gz \
+            ec2-user@${{ secrets.EC2_HOST }}:/tmp/my-dict-deploy.tar.gz
+
+          ssh -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+            cd /opt/my-dict
+            tar xzf /tmp/my-dict-deploy.tar.gz
+            rm -f /tmp/my-dict-deploy.tar.gz
+            docker compose down
+            docker compose up -d --build --force-recreate
+            echo "Waiting for services..."
+            sleep 15
+            docker compose ps
+          EOF
