@@ -2,13 +2,13 @@
  * API helper functions for creating and cleaning up test data.
  */
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 
 /**
  * Create a word directly via API for test setup.
  */
 export async function createWord(request, { slug, title, sections = '[]', phonetic = '', subtitle = '' }) {
-  const response = await request.post(`${BASE_URL}/api/words`, {
+  const response = await request.post(`${API_URL}/api/words`, {
     data: { slug, title, phonetic, subtitle, sections },
   });
   return response;
@@ -18,7 +18,7 @@ export async function createWord(request, { slug, title, sections = '[]', phonet
  * Delete a word directly via API for test cleanup.
  */
 export async function deleteWord(request, slug) {
-  return request.delete(`${BASE_URL}/api/words/${encodeURIComponent(slug)}`);
+  return request.delete(`${API_URL}/api/words/${encodeURIComponent(slug)}`);
 }
 
 /**

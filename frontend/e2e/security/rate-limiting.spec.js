@@ -8,6 +8,7 @@ import { test, expect } from '@playwright/test';
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || BASE_URL;
 
 test.describe('Rate Limiting', () => {
 
@@ -18,7 +19,7 @@ test.describe('Rate Limiting', () => {
 
     // Fire 50 rapid generation requests
     const promises = Array.from({ length: 50 }, (_, i) =>
-      request.post(`${BASE_URL}/api/words/generate`, {
+      request.post(`${API_URL}/api/words/generate`, {
         data: { word: `rate-limit-test-${i}-${Date.now()}` },
       }).then(r => r.status())
     );
@@ -48,7 +49,7 @@ test.describe('Rate Limiting', () => {
 
     // Fire 100 rapid search requests
     const promises = Array.from({ length: 100 }, (_, i) =>
-      request.get(`${BASE_URL}/api/words/search`, {
+      request.get(`${API_URL}/api/words/search`, {
         params: { q: `search-${i}` },
       }).then(r => r.status())
     );

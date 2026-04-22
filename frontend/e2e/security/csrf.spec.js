@@ -8,13 +8,13 @@ import { test, expect } from '@playwright/test';
  * for state-changing operations.
  */
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 
 test.describe('CSRF - Cross-Origin Request Protection', () => {
 
   // Case 26: CSRF on word generation from different origin
   test('should block cross-origin POST to generate endpoint', async ({ request }) => {
-    const response = await request.post(`${BASE_URL}/api/words/generate`, {
+    const response = await request.post(`${API_URL}/api/words/generate`, {
       data: { word: 'csrf-test' },
       headers: {
         'Origin': 'https://evil-site.com',
@@ -38,7 +38,7 @@ test.describe('CSRF - Cross-Origin Request Protection', () => {
   // Case 27: CSRF on word deletion from different origin
   test('should block cross-origin DELETE requests', async ({ request }) => {
     const response = await request.delete(
-      `${BASE_URL}/api/words/csrf-test-nonexistent`,
+      `${API_URL}/api/words/csrf-test-nonexistent`,
       {
         headers: {
           'Origin': 'https://evil-site.com',
@@ -58,7 +58,7 @@ test.describe('CSRF - Cross-Origin Request Protection', () => {
   // Case 28: CORS misconfiguration check via preflight
   test('should not allow wildcard CORS for mutating methods', async ({ request }) => {
     // Send an OPTIONS preflight request
-    const response = await request.fetch(`${BASE_URL}/api/words/generate`, {
+    const response = await request.fetch(`${API_URL}/api/words/generate`, {
       method: 'OPTIONS',
       headers: {
         'Origin': 'https://evil-site.com',

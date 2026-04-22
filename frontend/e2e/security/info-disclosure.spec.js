@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
  * through error messages, source maps, or directory listings.
  */
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 
 test.describe('Information Disclosure', () => {
 
@@ -16,11 +16,11 @@ test.describe('Information Disclosure', () => {
   test('500 errors should not expose stack traces', async ({ request }) => {
     // Send intentionally malformed requests to try to trigger 500s
     const badRequests = [
-      request.post(`${BASE_URL}/api/words`, {
+      request.post(`${API_URL}/api/words`, {
         data: 'not json',
         headers: { 'Content-Type': 'application/json' },
       }),
-      request.post(`${BASE_URL}/api/words/generate`, {
+      request.post(`${API_URL}/api/words/generate`, {
         data: '{{invalid}}',
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -44,7 +44,7 @@ test.describe('Information Disclosure', () => {
 
   test('error responses should not expose database details', async ({ request }) => {
     // Try to trigger database errors
-    const response = await request.get(`${BASE_URL}/api/words/search`, {
+    const response = await request.get(`${API_URL}/api/words/search`, {
       params: { q: "'; SELECT version();--" },
     });
 
@@ -73,7 +73,7 @@ test.describe('Information Disclosure', () => {
     ];
 
     for (const endpoint of endpoints) {
-      const response = await request.get(`${BASE_URL}${endpoint}`);
+      const response = await request.get(`${API_URL}${endpoint}`);
       const body = await response.text();
 
       // Should be 404 or redirect - not exposing internal details
@@ -98,7 +98,7 @@ test.describe('Information Disclosure', () => {
     ];
 
     for (const path of mapPaths) {
-      const response = await request.get(`${BASE_URL}${path}`);
+      const response = await request.get(`${API_URL}${path}`);
 
       // Source maps should return 404 in production
       if (response.status() === 200) {
@@ -125,7 +125,7 @@ test.describe('Information Disclosure', () => {
     ];
 
     for (const path of paths) {
-      const response = await request.get(`${BASE_URL}${path}`);
+      const response = await request.get(`${API_URL}${path}`);
       const body = await response.text();
 
       // Should not show directory listing

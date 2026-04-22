@@ -9,12 +9,13 @@ import { test, expect } from '@playwright/test';
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || BASE_URL;
 
 test.describe('Auth - Unauthenticated API access', () => {
 
   // Case 14: Unauthenticated word generation
   test('generate endpoint accepts requests without authentication', async ({ request }) => {
-    const response = await request.post(`${BASE_URL}/api/words/generate`, {
+    const response = await request.post(`${API_URL}/api/words/generate`, {
       data: { word: 'auth-test-word-' + Date.now() },
     });
 
@@ -27,7 +28,7 @@ test.describe('Auth - Unauthenticated API access', () => {
   test('delete endpoint accepts requests without authentication', async ({ request }) => {
     // Try to delete a non-existent word - testing that the endpoint is accessible
     const response = await request.delete(
-      `${BASE_URL}/api/words/auth-test-nonexistent-${Date.now()}`
+      `${API_URL}/api/words/auth-test-nonexistent-${Date.now()}`
     );
 
     // Document: delete endpoint has no auth - should require authentication
@@ -42,7 +43,7 @@ test.describe('Auth - Unauthenticated API access', () => {
     // Attempt 20 rapid deletions
     for (let i = 0; i < 20; i++) {
       const response = await request.delete(
-        `${BASE_URL}/api/words/mass-delete-test-${i}`
+        `${API_URL}/api/words/mass-delete-test-${i}`
       );
       results.push(response.status());
     }
@@ -92,7 +93,7 @@ test.describe('Auth - Unauthenticated API access', () => {
 
     // Enumerate up to 5 pages
     while (currentPage <= totalPages && currentPage <= 5) {
-      const response = await request.get(`${BASE_URL}/api/words`, {
+      const response = await request.get(`${API_URL}/api/words`, {
         params: { page: currentPage, limit: 100 },
       });
 

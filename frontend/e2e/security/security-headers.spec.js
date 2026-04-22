@@ -8,6 +8,7 @@ import { test, expect } from '@playwright/test';
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || BASE_URL;
 
 test.describe('Security Headers', () => {
 
@@ -90,7 +91,7 @@ test.describe('Security Headers', () => {
     }
 
     // API endpoint check too
-    const apiResponse = await request.get(`${BASE_URL}/api/health`);
+    const apiResponse = await request.get(`${API_URL}/api/health`);
     const apiServer = apiResponse.headers()['server'];
     if (apiServer && /\d+\.\d+/.test(apiServer)) {
       console.warn(`WARNING: API Server header discloses version: ${apiServer}`);
@@ -101,7 +102,7 @@ test.describe('Security Headers', () => {
 
   // Additional: Check API responses for security headers
   test('API responses should include security headers', async ({ request }) => {
-    const response = await request.get(`${BASE_URL}/api/words?page=1&limit=1`);
+    const response = await request.get(`${API_URL}/api/words?page=1&limit=1`);
 
     const headers = response.headers();
     const missing = [];

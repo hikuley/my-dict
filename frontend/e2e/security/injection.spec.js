@@ -9,14 +9,14 @@ import { SQL_PAYLOADS, PATH_TRAVERSAL_PAYLOADS, CRLF_PAYLOADS } from '../fixture
  * are handled safely by the API without leaking data or causing errors.
  */
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 
 test.describe('Injection - SQL Injection via search', () => {
 
   // Case 9: SQL injection via search query parameter
   for (const payload of SQL_PAYLOADS) {
     test(`search should handle SQL payload safely: ${payload.slice(0, 40)}...`, async ({ request }) => {
-      const response = await request.get(`${BASE_URL}/api/words/search`, {
+      const response = await request.get(`${API_URL}/api/words/search`, {
         params: { q: payload },
       });
 
@@ -45,7 +45,7 @@ test.describe('Injection - SQL Injection via slug path', () => {
   for (const payload of slugPayloads) {
     test(`slug path should handle SQL payload safely: ${payload.slice(0, 30)}...`, async ({ request }) => {
       const response = await request.get(
-        `${BASE_URL}/api/words/${encodeURIComponent(payload)}`
+        `${API_URL}/api/words/${encodeURIComponent(payload)}`
       );
 
       // Should be 404 (not found) - never 500 or data leak
@@ -58,7 +58,7 @@ test.describe('Injection - JSON injection in generate body', () => {
 
   // Case 11: NoSQL/JSON injection in generate endpoint
   test('generate should handle malicious JSON payload safely', async ({ request }) => {
-    const response = await request.post(`${BASE_URL}/api/words/generate`, {
+    const response = await request.post(`${API_URL}/api/words/generate`, {
       data: { word: 'test", "__proto__": {}' },
     });
 
@@ -67,7 +67,7 @@ test.describe('Injection - JSON injection in generate body', () => {
   });
 
   test('generate should handle nested object injection safely', async ({ request }) => {
-    const response = await request.post(`${BASE_URL}/api/words/generate`, {
+    const response = await request.post(`${API_URL}/api/words/generate`, {
       data: { word: 'normal', extra: { admin: true } },
     });
 
@@ -75,7 +75,7 @@ test.describe('Injection - JSON injection in generate body', () => {
   });
 
   test('generate should reject non-string word field', async ({ request }) => {
-    const response = await request.post(`${BASE_URL}/api/words/generate`, {
+    const response = await request.post(`${API_URL}/api/words/generate`, {
       data: { word: { '$gt': '' } },
     });
 
@@ -89,7 +89,7 @@ test.describe('Injection - Path traversal via slug', () => {
   for (const payload of PATH_TRAVERSAL_PAYLOADS) {
     test(`path traversal should be blocked: ${payload.slice(0, 30)}`, async ({ request }) => {
       const response = await request.get(
-        `${BASE_URL}/api/words/${encodeURIComponent(payload)}`
+        `${API_URL}/api/words/${encodeURIComponent(payload)}`
       );
 
       // Should be 404 - never expose file system content
@@ -109,7 +109,7 @@ test.describe('Injection - CRLF injection via search', () => {
   // Case 13: CRLF injection in search query
   for (const payload of CRLF_PAYLOADS) {
     test(`CRLF injection should be blocked: ${payload.slice(0, 30)}`, async ({ request }) => {
-      const response = await request.get(`${BASE_URL}/api/words/search`, {
+      const response = await request.get(`${API_URL}/api/words/search`, {
         params: { q: payload },
       });
 
