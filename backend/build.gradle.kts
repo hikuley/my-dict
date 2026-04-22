@@ -28,6 +28,14 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.3.1")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 kotlin {

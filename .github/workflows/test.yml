@@ -1,7 +1,9 @@
-name: Deploy to EC2
+name: Backend Tests
 
 on:
   push:
+    branches: ['**']
+  pull_request:
     branches: [main]
 
 jobs:
@@ -67,48 +69,10 @@ jobs:
           KAFKA_BROKER: localhost:9092
         run: ./gradlew test --no-daemon
 
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Create deploy package
-        run: |
-          tar czf /tmp/my-dict-deploy.tar.gz \
-            --exclude='node_modules' \
-            --exclude='.git' \
-            --exclude='infra' \
-            --exclude='.github' \
-            --exclude='.env' \
-            --exclude='.gradle' \
-            --exclude='backend/build' \
-            docker-compose.yml \
-            docker.sh \
-            frontend/ \
-            backend/
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-
-      - name: Upload and deploy
-        run: |
-          scp -i ~/.ssh/deploy_key \
-            /tmp/my-dict-deploy.tar.gz \
-            ec2-user@${{ secrets.EC2_HOST }}:/tmp/my-dict-deploy.tar.gz
-
-          ssh -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-            cd /opt/my-dict
-            tar xzf /tmp/my-dict-deploy.tar.gz
-            rm -f /tmp/my-dict-deploy.tar.gz
-            docker compose down
-            docker compose up -d --build --force-recreate
-            echo "Waiting for services..."
-            sleep 15
-            docker compose ps
-          EOF
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: backend/build/reports/tests/
+          retention-days: 7

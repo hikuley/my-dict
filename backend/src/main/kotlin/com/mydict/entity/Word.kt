@@ -1,6 +1,8 @@
 package com.mydict.entity
 
 import jakarta.persistence.*
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.time.OffsetDateTime
 
 @Entity
@@ -23,6 +25,7 @@ class Word(
     var subtitle: String? = null,
 
     @Column(columnDefinition = "JSONB", nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
     var sections: String = "[]",
 
     @Column(name = "created_at", updatable = false)
