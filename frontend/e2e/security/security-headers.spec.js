@@ -53,8 +53,8 @@ test.describe('Security Headers', () => {
   });
 
   // Case 32: Strict-Transport-Security
-  test('should have Strict-Transport-Security header for HTTPS', async ({ request }) => {
-    const response = await request.get(BASE_URL);
+  test('should have Strict-Transport-Security header for HTTPS', async ({ page }) => {
+    const response = await page.goto('/');
     const header = response.headers()['strict-transport-security'];
 
     if (!header) {
@@ -78,8 +78,8 @@ test.describe('Security Headers', () => {
   });
 
   // Case 34: Server version disclosure
-  test('should not disclose server version in headers', async ({ request }) => {
-    const response = await request.get(BASE_URL);
+  test('should not disclose server version in headers', async ({ page }) => {
+    const response = await page.goto('/');
     const server = response.headers()['server'];
 
     if (server) {
@@ -91,7 +91,7 @@ test.describe('Security Headers', () => {
     }
 
     // API endpoint check too
-    const apiResponse = await request.get(`${API_URL}/api/health`);
+    const apiResponse = await page.request.get(`${API_URL}/api/health`);
     const apiServer = apiResponse.headers()['server'];
     if (apiServer && /\d+\.\d+/.test(apiServer)) {
       console.warn(`WARNING: API Server header discloses version: ${apiServer}`);

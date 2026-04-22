@@ -22,22 +22,6 @@ test.describe('XSS - Stored XSS via section content', () => {
     await createXssWord(request, slug, XSS_PAYLOADS.scriptTag);
 
     await page.goto('/');
-    // Set up XSS detection flag before navigating to the word
-    await page.evaluate(() => { window.__xss_fired = false; });
-
-    // Intercept the word detail API to ensure our payload is served
-    await page.route(`**/api/words/${slug}`, async (route) => {
-      const response = await route.fetch();
-      const json = await response.json();
-      await route.fulfill({ response, json });
-    });
-
-    // Open word detail by clicking on the word row, then the detail button
-    await page.evaluate((s) => {
-      return fetch('/api/words/' + s).then(r => r.json());
-    }, slug);
-
-    // Navigate to word detail via route mock to test dangerouslySetInnerHTML
     await page.route('**/api/words?*', async (route) => {
       await route.fulfill({
         json: {
@@ -48,6 +32,8 @@ test.describe('XSS - Stored XSS via section content', () => {
     });
 
     await page.goto('/');
+    // Set up XSS detection flag after final navigation
+    await page.evaluate(() => { window.__xss_fired = false; });
     await page.waitForSelector('table tbody tr');
 
     // Click the info/detail button on the row

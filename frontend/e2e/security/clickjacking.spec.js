@@ -14,8 +14,8 @@ const API_URL = process.env.API_URL || BASE_URL;
 test.describe('Clickjacking Protection', () => {
 
   // Case 47: Iframe embedding check via headers
-  test('should prevent iframe embedding via X-Frame-Options', async ({ request }) => {
-    const response = await request.get(BASE_URL);
+  test('should prevent iframe embedding via X-Frame-Options', async ({ page }) => {
+    const response = await page.goto('/');
     const xFrameOptions = response.headers()['x-frame-options'];
     const csp = response.headers()['content-security-policy'];
 
