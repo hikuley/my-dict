@@ -37,6 +37,7 @@ jobs:
           KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
           KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
           CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
     steps:
@@ -101,6 +102,7 @@ jobs:
           KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
           KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
           CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
     steps:
@@ -140,6 +142,18 @@ jobs:
         working-directory: backend
         run: ./gradlew bootJar --no-daemon
 
+      - name: Wait for Kafka readiness
+        run: |
+          echo "Waiting for Kafka to be ready..."
+          for i in $(seq 1 30); do
+            if nc -z localhost 9092 2>/dev/null; then
+              echo "Kafka is ready"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
       - name: Start backend
         working-directory: backend
         env:
@@ -150,7 +164,7 @@ jobs:
           ANTHROPIC_API_KEY: test-key
         run: |
           java -jar build/libs/*.jar &
-          sleep 10
+          sleep 15
 
       - name: Build and serve frontend
         working-directory: frontend
