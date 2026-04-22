@@ -16,7 +16,7 @@ spring:
     clean-disabled: false
     locations: classpath:db/migration
   kafka:
-    bootstrap-servers: ${KAFKA_BROKER:localhost:9092}
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
     consumer:
       group-id: word-generator-group
       auto-offset-reset: earliest
