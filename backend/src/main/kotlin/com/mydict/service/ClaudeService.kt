@@ -7,13 +7,19 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 import java.util.concurrent.TimeUnit
 
+interface ClaudeService {
+    fun generateWordData(word: String, slug: String): Map<String, Any?>
+}
+
 @Service
-class ClaudeService(
+@Profile("!mock-claude")
+class ClaudeServiceImpl(
     @Value("\${app.anthropic-api-key}") private val apiKey: String,
-) {
+) : ClaudeService {
     private val log = LoggerFactory.getLogger(javaClass)
     private val jsonMediaType = "application/json".toMediaType()
 
@@ -27,7 +33,7 @@ class ClaudeService(
         .getResource("prompts/generate-word.md")!!
         .readText()
 
-    fun generateWordData(word: String, slug: String): Map<String, Any?> {
+    override fun generateWordData(word: String, slug: String): Map<String, Any?> {
         val prompt = promptTemplate
             .replace("{{word}}", word)
             .replace("{{slug}}", slug)

@@ -205,4 +205,10 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
         mockMvc.perform(delete("/api/words/integration-test"))
             .andExpect(status().isOk)
     }
+
+    @Test
+    @Order(101)
+    fun `cleanup - delete ephemeral test word`() {
+        mockMvc.perform(delete("/api/words/ephemeral"))
+    }
 }

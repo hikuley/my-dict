@@ -236,6 +236,7 @@ jobs:
           DB_PASSWORD: mydict
           KAFKA_BROKER: localhost:9092
           ANTHROPIC_API_KEY: test-key
+          SPRING_PROFILES_ACTIVE: mock-claude
         run: |
           java -jar build/libs/*.jar &
           sleep 15
@@ -381,6 +382,7 @@ jobs:
           DB_PASSWORD: mydict
           KAFKA_BROKER: localhost:9092
           ANTHROPIC_API_KEY: test-key
+          SPRING_PROFILES_ACTIVE: mock-claude
         run: |
           java -jar build/libs/*.jar &
           sleep 15
@@ -549,6 +551,7 @@ jobs:
           DB_PASSWORD: mydict
           KAFKA_BROKER: localhost:9092
           ANTHROPIC_API_KEY: test-key
+          SPRING_PROFILES_ACTIVE: mock-claude
         run: |
           java -jar build/libs/*.jar &
           sleep 15
