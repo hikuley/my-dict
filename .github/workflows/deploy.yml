@@ -218,13 +218,15 @@ jobs:
         working-directory: frontend
         run: |
           npm run build
-          npx serve -s dist -l 3000 &
+          node e2e-server.cjs &
           sleep 3
 
       - name: Verify frontend is serving
         run: |
           curl -sf http://localhost:3000 > /dev/null || (echo "ERROR: Frontend not responding" && exit 1)
           echo "Frontend is serving"
+          curl -sf http://localhost:3000/api/words?page=1\&limit=1 > /dev/null || (echo "ERROR: API proxy not working" && exit 1)
+          echo "API proxy is working"
 
       - name: Run Playwright security tests
         working-directory: frontend
@@ -476,13 +478,15 @@ jobs:
         working-directory: frontend
         run: |
           npm run build
-          npx serve -s dist -l 3000 &
+          node e2e-server.cjs &
           sleep 3
 
       - name: Verify frontend is serving
         run: |
           curl -sf http://localhost:3000 > /dev/null || (echo "ERROR: Frontend not responding" && exit 1)
           echo "Frontend is serving"
+          curl -sf http://localhost:3000/api/words?page=1\&limit=1 > /dev/null || (echo "ERROR: API proxy not working" && exit 1)
+          echo "API proxy is working"
 
       - name: Run Playwright E2E tests
         working-directory: frontend
