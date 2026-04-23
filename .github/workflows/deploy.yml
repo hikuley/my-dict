@@ -103,7 +103,6 @@ jobs:
   fe-security-tests:
     name: "FE: Playwright Security Tests"
     runs-on: ubuntu-latest
-    needs: [be-unit-tests, be-integration-tests]
 
     services:
       postgres:
@@ -237,7 +236,6 @@ jobs:
   be-performance-tests:
     name: "BE: Performance / Load Tests"
     runs-on: ubuntu-latest
-    needs: [be-unit-tests, be-integration-tests]
 
     services:
       postgres:
