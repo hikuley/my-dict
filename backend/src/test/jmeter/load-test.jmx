@@ -245,11 +245,12 @@
           </ResponseAssertion>
           <hashTree/>
           <!-- Extract slug from response for DELETE -->
-          <com.atlantbh.jmeter.plugins.jsonutils.jsonpathextractor.JSONPathExtractor guiclass="com.atlantbh.jmeter.plugins.jsonutils.jsonpathextractor.gui.JSONPathExtractorGui" testclass="com.atlantbh.jmeter.plugins.jsonutils.jsonpathextractor.JSONPathExtractor" testname="Extract slug" enabled="true">
-            <stringProp name="VAR">created_slug</stringProp>
-            <stringProp name="JSONPATH">$.slug</stringProp>
-            <stringProp name="DEFAULT">NOT_FOUND</stringProp>
-          </com.atlantbh.jmeter.plugins.jsonutils.jsonpathextractor.JSONPathExtractor>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract slug" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">created_slug</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.slug</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+            <stringProp name="JSONPostProcessor.defaultValues">NOT_FOUND</stringProp>
+          </JSONPostProcessor>
           <hashTree/>
         </hashTree>
 
