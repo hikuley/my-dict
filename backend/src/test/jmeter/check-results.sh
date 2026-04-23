@@ -22,10 +22,10 @@ ERRORS=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $8}' | grep -ci 'false' 
 ERROR_RATE=$(awk "BEGIN {printf \"%.2f\", ($ERRORS / $TOTAL) * 100}")
 
 # Calculate p95 from the "elapsed" column (column 2, 1-indexed)
-P95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $2}' | sort -n | awk -v total="$TOTAL" '
-  BEGIN { idx = int(total * 0.95 + 0.5); if (idx < 1) idx = 1 }
-  NR == idx { print; exit }
-')
+P95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{vals[NR]=$2} END {
+  n=NR; for(i=1;i<=n;i++) a[i]=vals[i]; asort(a);
+  idx=int(n*0.95+0.5); if(idx<1) idx=1; print a[idx]
+}')
 
 # Calculate additional stats
 AVG=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{sum += $2; count++} END {printf "%.0f", sum/count}')
