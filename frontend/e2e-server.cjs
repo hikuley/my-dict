@@ -85,6 +85,10 @@ const server = http.createServer((req, res) => {
 
 // Handle WebSocket upgrade for /ws
 server.on('upgrade', (req, socket, head) => {
+  socket.on('error', (err) => {
+    console.error(`WebSocket client socket error: ${err.message}`);
+  });
+
   if (req.url.startsWith('/ws')) {
     const options = {
       hostname: BACKEND_HOST,
@@ -96,25 +100,47 @@ server.on('upgrade', (req, socket, head) => {
 
     const proxyReq = http.request(options);
     proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
-      socket.write(
-        `HTTP/1.1 101 ${proxyRes.statusMessage}\r\n` +
-        Object.entries(proxyRes.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n') +
-        '\r\n\r\n'
-      );
-      if (proxyHead.length > 0) socket.write(proxyHead);
+      proxySocket.on('error', (err) => {
+        console.error(`WebSocket proxy socket error: ${err.message}`);
+        try { socket.end(); } catch {}
+      });
+      socket.on('close', () => {
+        try { proxySocket.end(); } catch {}
+      });
+      proxySocket.on('close', () => {
+        try { socket.end(); } catch {}
+      });
+
+      try {
+        socket.write(
+          `HTTP/1.1 101 ${proxyRes.statusMessage}\r\n` +
+          Object.entries(proxyRes.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n') +
+          '\r\n\r\n'
+        );
+        if (proxyHead.length > 0) socket.write(proxyHead);
+      } catch (err) {
+        console.error(`WebSocket handshake write error: ${err.message}`);
+        try { proxySocket.end(); } catch {}
+        return;
+      }
       proxySocket.pipe(socket);
       socket.pipe(proxySocket);
     });
 
     proxyReq.on('error', (err) => {
       console.error(`WebSocket proxy error: ${err.message}`);
-      socket.end();
+      try { socket.end(); } catch {}
     });
 
     proxyReq.end();
   } else {
     socket.end();
   }
+});
+
+// Prevent unhandled errors from crashing the server during stress tests
+server.on('error', (err) => {
+  console.error(`Server error: ${err.message}`);
 });
 
 server.listen(PORT, () => {
