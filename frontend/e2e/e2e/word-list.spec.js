@@ -20,16 +20,16 @@ test.describe('Word List - Display & Pagination', () => {
     await expect(headerCells).toHaveCount(3); // Word, Description, Actions
   });
 
-  test('should navigate pages with pagination buttons', async ({ page }) => {
+  test('should show pagination info in footer', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
-    const nextButton = page.locator('button:has-text("Next")');
-    if (await nextButton.isEnabled().catch(() => false)) {
-      await nextButton.click();
-      await page.waitForSelector('table tbody tr', { timeout: 5000 });
-      const rows = page.locator('table tbody tr');
-      await expect(rows.first()).toBeVisible();
-    }
+    // Verify pagination footer shows page info (e.g., "Page 1 / 1")
+    const pageInfo = page.locator('text=/Page \\d+ \\/ \\d+/');
+    await expect(pageInfo).toBeVisible({ timeout: 5000 });
+
+    // Verify total count is displayed
+    const totalText = page.locator('text=/Total/');
+    await expect(totalText).toBeVisible({ timeout: 5000 });
   });
 });

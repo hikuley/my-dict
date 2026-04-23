@@ -26,8 +26,8 @@ test.describe('Add Word (Generate via Kafka)', () => {
     await wordInput.fill(testWord);
 
     // Submit
-    const submitButton = page.locator('.ant-modal button:has-text("OK")').or(page.locator('.ant-modal button[type="submit"]'));
-    await submitButton.first().click();
+    const submitButton = page.locator('.ant-modal button:has-text("Add Word")').last();
+    await submitButton.click();
 
     // Modal should close after submission
     await page.waitForSelector('.ant-modal', { state: 'hidden', timeout: 10000 });
@@ -56,8 +56,8 @@ test.describe('Add Word (Generate via Kafka)', () => {
       { timeout: 10000 }
     );
 
-    const submitButton = page.locator('.ant-modal button:has-text("OK")').or(page.locator('.ant-modal button[type="submit"]'));
-    await submitButton.first().click();
+    const submitButton = page.locator('.ant-modal button:has-text("Add Word")').last();
+    await submitButton.click();
 
     const response = await generatePromise;
     expect([200, 202, 409]).toContain(response.status());

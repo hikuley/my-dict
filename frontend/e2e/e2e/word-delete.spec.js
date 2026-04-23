@@ -11,11 +11,11 @@ test.describe('Delete Word', () => {
       title: 'DeleteMe',
       subtitle: 'Word to be deleted',
       phonetic: '/dɪˈliːt/',
-      sections: JSON.stringify([{
+      sections: [{
         title: 'Definition',
         icon: '📖',
         content: '<p>A word created to test deletion.</p>',
-      }]),
+      }],
     });
   });
 

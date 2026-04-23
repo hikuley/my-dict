@@ -11,7 +11,7 @@ test.describe('Word Detail', () => {
       title: 'Ephemeral',
       subtitle: 'Lasting for a very short time',
       phonetic: '/ɪˈfɛm.ər.əl/',
-      sections: JSON.stringify([
+      sections: [
         {
           title: 'Definition',
           icon: '📖',
@@ -22,7 +22,7 @@ test.describe('Word Detail', () => {
           icon: '💡',
           content: '<p>The ephemeral beauty of cherry blossoms.</p>',
         },
-      ]),
+      ],
     });
   });
 

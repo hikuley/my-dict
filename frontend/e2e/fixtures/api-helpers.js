@@ -7,7 +7,7 @@ const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost
 /**
  * Create a word directly via API for test setup.
  */
-export async function createWord(request, { slug, title, sections = '[]', phonetic = '', subtitle = '' }) {
+export async function createWord(request, { slug, title, sections = [], phonetic = '', subtitle = '' }) {
   const response = await request.post(`${API_URL}/api/words`, {
     data: { slug, title, phonetic, subtitle, sections },
   });
@@ -25,13 +25,13 @@ export async function deleteWord(request, slug) {
  * Create a word with malicious section content for XSS testing.
  */
 export async function createXssWord(request, slug, xssPayload) {
-  const sections = JSON.stringify([
+  const sections = [
     {
       title: 'Definition',
       icon: '📖',
       content: xssPayload,
     },
-  ]);
+  ];
   return createWord(request, {
     slug,
     title: slug.toUpperCase(),

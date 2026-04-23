@@ -16,10 +16,10 @@ test.describe('Full User Journey', () => {
       title: 'Ubiquitous',
       subtitle: 'Present everywhere',
       phonetic: '/juːˈbɪk.wɪ.təs/',
-      sections: JSON.stringify([
+      sections: [
         { title: 'Definition', icon: '📖', content: '<p>Present, appearing, or found everywhere.</p>' },
         { title: 'Examples', icon: '💡', content: '<p>The ubiquitous smartphone has changed modern life.</p>' },
-      ]),
+      ],
     });
     expect(createResponse.status()).toBe(201);
 

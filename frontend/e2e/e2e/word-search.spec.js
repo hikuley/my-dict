@@ -11,11 +11,11 @@ test.describe('Word Search', () => {
       title: 'Serendipity',
       subtitle: 'Finding something good by chance',
       phonetic: '/ˌsɛr.ənˈdɪp.ɪ.ti/',
-      sections: JSON.stringify([{
+      sections: [{
         title: 'Definition',
         icon: '📖',
         content: '<p>The occurrence of events by chance in a happy way.</p>',
-      }]),
+      }],
     });
   });
 
