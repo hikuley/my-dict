@@ -9,12 +9,12 @@ An AI-powered dictionary app that generates detailed word definitions using Clau
 | Technology | Version | Purpose |
 |---|---|---|
 | Kotlin | 1.9.25 | Language |
-| Spring Boot | 3.3.0 | Web framework |
-| Spring Data JPA | 3.3.0 | ORM / PostgreSQL with JSONB |
-| Spring Kafka | 3.2.0 | Async message processing |
+| Spring Boot | 3.4.5 | Web framework |
+| Spring Data JPA | 3.4.5 | ORM / PostgreSQL with JSONB |
+| Spring Kafka | 3.4.5 | Async message processing |
 | Flyway | 10.10.0 | Database migrations |
 | OkHttp | 4.12.0 | Claude API HTTP client |
-| Gradle (Kotlin DSL) | 8.7 | Build system |
+| Gradle (Kotlin DSL) | 9.0.0 | Build system |
 | JDK | 17 | Runtime |
 
 ### Frontend
@@ -25,6 +25,8 @@ An AI-powered dictionary app that generates detailed word definitions using Clau
 | Ant Design | 5.20+ | Component library |
 | Redux Toolkit | 2.x | State management |
 | Vite | 5 | Build tool / dev server |
+| DOMPurify | 3.x | HTML sanitization (XSS prevention) |
+| Playwright | latest | E2E & security testing |
 
 ### Infrastructure
 
@@ -44,7 +46,7 @@ An AI-powered dictionary app that generates detailed word definitions using Clau
 | Elastic IP | Static public IP |
 | CloudWatch | Container log aggregation (14-day retention) |
 | Terraform | Infrastructure as Code |
-| GitHub Actions | CI/CD on push to `main` |
+| GitHub Actions | CI/CD (tests on all branches, deploy on `main`) |
 
 ## Architecture
 
@@ -119,7 +121,8 @@ my-dict/
 ├── docker-compose.dev.yml    # Local dev overrides
 ├── docker.sh                 # Helper script (run/dev/stop/logs)
 └── .github/workflows/
-    └── deploy.yml            # CI/CD: push to main → deploy to EC2
+    ├── test.yml              # Reusable test workflow (5 parallel jobs)
+    └── deploy.yml            # Calls test.yml → deploys to EC2
 ```
 
 ## Local Development
@@ -141,13 +144,37 @@ cd frontend && npm install && npm run dev
 - PostgreSQL: localhost:5433
 - Kafka: localhost:9092
 
-## Production Deployment
+## Testing
 
-Every push to `main` triggers GitHub Actions which:
-1. Creates a tar package (frontend + backend source)
-2. Uploads to EC2 via SCP
-3. Runs `docker compose up -d --build --force-recreate`
+The CI pipeline (`test.yml`) runs 5 parallel jobs on every push:
+
+| Job | What it does |
+|---|---|
+| **BE: Unit Tests** | `./gradlew unitTest` — fast, no external deps |
+| **BE: Integration Tests** | `./gradlew integrationTest` — PostgreSQL + Kafka service containers |
+| **FE: Playwright Security Tests** | XSS, CSRF, injection, clickjacking, security headers |
+| **BE: Performance Tests** | JMeter load test (100 threads, 120s) with error rate & P95 thresholds |
+| **FE: E2E Tests** | Full user journey — add, search, detail, delete |
+
+All jobs that need backend use `MockClaudeService` (Spring profile `mock-claude`) to avoid real API calls.
+
+```bash
+# Run locally
+cd backend && ./gradlew unitTest          # Unit tests
+cd backend && ./gradlew integrationTest   # Integration tests (needs Docker)
+cd frontend && npx playwright test        # E2E + security tests (needs running backend)
+```
+
+## CI/CD
+
+**`test.yml`** — Reusable workflow, runs on every push to any branch and on PRs to `main`.
+
+**`deploy.yml`** — Triggered on push to `main`. Calls `test.yml` as a reusable workflow, then deploys:
+1. All 5 test jobs must pass
+2. Creates a tar package (frontend + backend source)
+3. Uploads to EC2 via SCP
+4. Runs `docker compose up -d --build --force-recreate`
 
 Docker builds happen on EC2:
 - **Frontend**: multi-stage (Node 20 build → nginx:alpine)
-- **Backend**: multi-stage (Gradle 8.7 + JDK 17 build → JRE 17 Alpine)
+- **Backend**: multi-stage (Gradle 9.0.0 + JDK 17 build → JRE 17 Alpine)
