@@ -38,6 +38,20 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+tasks.register<Test>("unitTest") {
+    useJUnitPlatform()
+    filter {
+        excludeTestsMatching("com.mydict.integration.*")
+    }
+}
+
+tasks.register<Test>("integrationTest") {
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("com.mydict.integration.*")
+    }
+}
+
 kotlin {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict")
