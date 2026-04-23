@@ -29,6 +29,7 @@ jobs:
             --exclude='.gradle' \
             --exclude='backend/build' \
             docker-compose.yml \
+            docker-compose.ec2-dev.yml \
             docker.sh \
             frontend/ \
             backend/
@@ -50,9 +51,9 @@ jobs:
             cd /opt/my-dict
             tar xzf /tmp/my-dict-deploy.tar.gz
             rm -f /tmp/my-dict-deploy.tar.gz
-            docker compose down
-            docker compose up -d --build --force-recreate
+            docker compose -f docker-compose.yml -f docker-compose.ec2-dev.yml down
+            docker compose -f docker-compose.yml -f docker-compose.ec2-dev.yml up -d --build --force-recreate
             echo "Waiting for services..."
             sleep 15
-            docker compose ps
+            docker compose -f docker-compose.yml -f docker-compose.ec2-dev.yml ps
           EOF
