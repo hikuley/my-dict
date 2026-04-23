@@ -38,15 +38,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H ${{ secrets.EC2_DEV_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Upload and deploy
         run: |
           scp -i ~/.ssh/deploy_key \
             /tmp/my-dict-deploy.tar.gz \
-            ec2-user@${{ secrets.EC2_HOST }}:/tmp/my-dict-deploy.tar.gz
+            ec2-user@${{ secrets.EC2_DEV_HOST }}:/tmp/my-dict-deploy.tar.gz
 
-          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_DEV_HOST }} << 'EOF'
             cd /opt/my-dict
             tar xzf /tmp/my-dict-deploy.tar.gz
             rm -f /tmp/my-dict-deploy.tar.gz
