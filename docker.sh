@@ -5,18 +5,18 @@ cd "$(dirname "$0")"
 case "$1" in
   run)
     echo "Building and starting all services..."
-    docker compose up -d --build
+    docker compose -f docker-compose.local.yml up -d --build
 
     echo ""
     echo "Waiting for Kafka to be ready..."
-    until docker compose ps kafka --format json 2>/dev/null | grep -q '"running"'; do
+    until docker compose -f docker-compose.local.yml ps kafka --format json 2>/dev/null | grep -q '"running"'; do
       sleep 2
     done
     echo "Kafka is ready."
 
     echo ""
     echo "Waiting for API to be ready..."
-    until docker compose ps api --format json 2>/dev/null | grep -q '"running"'; do
+    until docker compose -f docker-compose.local.yml ps api --format json 2>/dev/null | grep -q '"running"'; do
       sleep 2
     done
     sleep 2
@@ -29,18 +29,18 @@ case "$1" in
 
   dev)
     echo "Starting DB and Kafka for local development..."
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db kafka
+    docker compose -f docker-compose.local.yml up -d db kafka
 
     echo ""
     echo "Waiting for DB to be ready..."
-    until docker compose -f docker-compose.yml -f docker-compose.dev.yml ps db --format json 2>/dev/null | grep -q '"running"'; do
+    until docker compose -f docker-compose.local.yml ps db --format json 2>/dev/null | grep -q '"running"'; do
       sleep 2
     done
     echo "DB is ready."
 
     echo ""
     echo "Waiting for Kafka to be ready..."
-    until docker compose -f docker-compose.yml -f docker-compose.dev.yml ps kafka --format json 2>/dev/null | grep -q '"running"'; do
+    until docker compose -f docker-compose.local.yml ps kafka --format json 2>/dev/null | grep -q '"running"'; do
       sleep 2
     done
     echo "Kafka is ready."
@@ -54,12 +54,12 @@ case "$1" in
 
   stop)
     echo "Stopping all services..."
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+    docker compose -f docker-compose.local.yml down
     echo "All services stopped."
     ;;
 
   logs)
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f "${@:2}"
+    docker compose -f docker-compose.local.yml logs -f "${@:2}"
     ;;
 
   *)

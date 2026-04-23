@@ -83,8 +83,7 @@ jobs:
             --exclude='.env' \
             --exclude='.gradle' \
             --exclude='backend/build' \
-            docker-compose.yml \
-            docker.sh \
+            docker-compose.prod.yml \
             frontend/ \
             backend/
 
@@ -108,10 +107,10 @@ jobs:
             tar xzf /tmp/my-dict-deploy.tar.gz
             rm -f /tmp/my-dict-deploy.tar.gz
             echo "$VERSION" > VERSION
-            docker compose down
-            docker compose up -d --build --force-recreate
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d --build --force-recreate
             echo "Waiting for services..."
             sleep 15
-            docker compose ps
+            docker compose -f docker-compose.prod.yml ps
             echo "Deployed version: $VERSION"
           EOF

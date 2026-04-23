@@ -117,12 +117,14 @@ my-dict/
 │   ├── ec2.tf
 │   ├── cloudwatch.tf
 │   └── architecture.mmd
-├── docker-compose.yml        # Production
-├── docker-compose.dev.yml    # Local dev overrides
-├── docker.sh                 # Helper script (run/dev/stop/logs)
+├── docker-compose.local.yml      # Local development (json-file logging, named volumes, localhost Kafka)
+├── docker-compose.dev.yml        # Dev EC2 (json-file logging, EBS volumes)
+├── docker-compose.prod.yml       # Prod EC2 (awslogs driver, EBS volumes)
+├── docker.sh                     # Helper script (run/dev/stop/logs)
 └── .github/workflows/
-    ├── test.yml              # Reusable test workflow (5 parallel jobs)
-    └── deploy.yml            # Calls test.yml → deploys to EC2
+    ├── test.yml                  # Reusable test workflow (5 parallel jobs)
+    ├── deploy-dev.yml            # Auto-deploy to dev EC2 on push to main
+    └── deploy-prod.yml           # Manual deploy to prod EC2 with versioning
 ```
 
 ## Local Development
@@ -169,11 +171,13 @@ cd frontend && npx playwright test        # E2E + security tests (needs running 
 
 **`test.yml`** — Reusable workflow, runs on every push to any branch and on PRs to `main`.
 
-**`deploy.yml`** — Triggered on push to `main`. Calls `test.yml` as a reusable workflow, then deploys:
+**`deploy-dev.yml`** — Triggered on push to `main`. Calls `test.yml` as a reusable workflow, then deploys to dev EC2:
 1. All 5 test jobs must pass
 2. Creates a tar package (frontend + backend source)
-3. Uploads to EC2 via SCP
-4. Runs `docker compose up -d --build --force-recreate`
+3. Uploads to dev EC2 via SCP
+4. Runs `docker compose -f docker-compose.dev.yml up -d --build --force-recreate`
+
+**`deploy-prod.yml`** — Manual trigger via `workflow_dispatch`. Runs all tests, creates a date-based version tag (e.g. `v2026.04.23.1`), generates release notes, and deploys to prod EC2.
 
 Docker builds happen on EC2:
 - **Frontend**: multi-stage (Node 20 build → nginx:alpine)
