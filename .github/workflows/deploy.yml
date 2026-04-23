@@ -37,8 +37,16 @@ jobs:
           KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
           KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
           KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
           CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 10
 
     steps:
       - name: Checkout code
@@ -102,8 +110,16 @@ jobs:
           KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
           KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
           KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
           CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 10
 
     steps:
       - name: Checkout code
@@ -142,18 +158,6 @@ jobs:
         working-directory: backend
         run: ./gradlew bootJar --no-daemon
 
-      - name: Wait for Kafka readiness
-        run: |
-          echo "Waiting for Kafka to be ready..."
-          for i in $(seq 1 30); do
-            if nc -z localhost 9092 2>/dev/null; then
-              echo "Kafka is ready"
-              break
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 2
-          done
-
       - name: Start backend
         working-directory: backend
         env:
@@ -166,12 +170,30 @@ jobs:
           java -jar build/libs/*.jar &
           sleep 15
 
+      - name: Verify backend is running
+        run: |
+          echo "Checking backend health..."
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:3001/api/words?page=0\&size=1 > /dev/null 2>&1; then
+              echo "Backend is healthy"
+              break
+            fi
+            echo "Waiting for backend... ($i/10)"
+            sleep 3
+          done
+          curl -sf http://localhost:3001/api/words?page=0\&size=1 || (echo "ERROR: Backend not responding" && exit 1)
+
       - name: Build and serve frontend
         working-directory: frontend
         run: |
           npm run build
           npx serve -s dist -l 3000 &
           sleep 3
+
+      - name: Verify frontend is serving
+        run: |
+          curl -sf http://localhost:3000 > /dev/null || (echo "ERROR: Frontend not responding" && exit 1)
+          echo "Frontend is serving"
 
       - name: Run Playwright security tests
         working-directory: frontend
