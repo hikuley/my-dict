@@ -283,7 +283,7 @@ jobs:
           retention-days: 7
 
   be-performance-tests:
-    name: "BE: Performance / Load Tests"
+    name: "BE: Performance Tests"
     runs-on: ubuntu-latest
 
     services:
