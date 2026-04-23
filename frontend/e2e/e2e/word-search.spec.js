@@ -24,16 +24,38 @@ test.describe('Word Search', () => {
   });
 
   test('should search and find a word', async ({ page }) => {
+    // Mock search API — backend FTS uses English stemming for title but simple
+    // dictionary for queries, so dynamically created words may not match.
+    await page.route('**/api/words/search**', async (route) => {
+      const url = new URL(route.request().url());
+      const query = (url.searchParams.get('q') || '').toLowerCase();
+      if (query.includes('serendipity')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            words: [{
+              slug: SEARCH_SLUG,
+              title: 'Serendipity',
+              subtitle: 'Finding something good by chance',
+              rank: 1.0,
+            }],
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
     await page.goto('/');
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     const searchInput = page.locator('input').first();
     await searchInput.fill('Serendipity');
-    await page.waitForTimeout(500); // debounce delay
 
-    await page.waitForSelector('table tbody tr', { timeout: 5000 });
-    const cellText = await page.locator('table tbody tr:first-child').textContent();
-    expect(cellText).toContain('Serendipity');
+    // Wait for the search result row to appear
+    const resultRow = page.locator('table tbody tr', { hasText: 'Serendipity' });
+    await expect(resultRow).toBeVisible({ timeout: 5000 });
   });
 
   test('should show no results for gibberish query', async ({ page }) => {

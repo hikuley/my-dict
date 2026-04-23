@@ -42,13 +42,10 @@ test.describe('Delete Word', () => {
 
     await deleteButton.click();
 
-    // Handle confirmation dialog if present
-    const confirmButton = page.locator('.ant-popconfirm-buttons button:has-text("OK")')
-      .or(page.locator('.ant-modal button:has-text("OK")'))
-      .or(page.locator('button:has-text("Yes")'));
-    if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await confirmButton.first().click();
-    }
+    // Wait for Ant Design Modal.confirm dialog and click "Yes"
+    const confirmBtn = page.locator('.ant-modal-confirm-btns button').filter({ hasText: 'Yes' });
+    await confirmBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await confirmBtn.click();
 
     const response = await deletePromise;
     expect(response.status()).toBe(200);

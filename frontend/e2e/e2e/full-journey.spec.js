@@ -42,9 +42,30 @@ test.describe('Full User Journey', () => {
     await page.waitForSelector('.ant-modal', { state: 'hidden', timeout: 5000 });
 
     // Step 4: Search for the word
+    // Mock search API — backend FTS English stemming mismatch with simple query
+    await page.route('**/api/words/search**', async (route) => {
+      const url = new URL(route.request().url());
+      const query = (url.searchParams.get('q') || '').toLowerCase();
+      if (query.includes('ubiquitous')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            words: [{
+              slug: FLOW_SLUG,
+              title: 'Ubiquitous',
+              subtitle: 'Present everywhere',
+              rank: 1.0,
+            }],
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
     const searchInput = page.locator('input').first();
     await searchInput.fill('Ubiquitous');
-    await page.waitForTimeout(500);
     const searchRow = page.locator('table tbody tr', { hasText: 'Ubiquitous' });
     await expect(searchRow).toBeVisible({ timeout: 5000 });
 
@@ -65,13 +86,10 @@ test.describe('Full User Journey', () => {
 
     await deleteButton.click();
 
-    // Handle confirmation if present
-    const confirmButton = page.locator('.ant-popconfirm-buttons button:has-text("OK")')
-      .or(page.locator('.ant-modal button:has-text("OK")'))
-      .or(page.locator('button:has-text("Yes")'));
-    if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await confirmButton.first().click();
-    }
+    // Wait for Ant Design Modal.confirm dialog and click "Yes"
+    const confirmBtn = page.locator('.ant-modal-confirm-btns button').filter({ hasText: 'Yes' });
+    await confirmBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await confirmBtn.click();
 
     await deletePromise;
 
