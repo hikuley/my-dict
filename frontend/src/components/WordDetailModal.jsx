@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Modal, Collapse, Spin, Typography } from 'antd';
 import { SoundOutlined } from '@ant-design/icons';
+import DOMPurify from 'dompurify';
 
 const { Text } = Typography;
 
@@ -139,7 +140,7 @@ const WordDetailModal = ({ slug, title, onClose }) => {
     children: (
       <div
         className="section-content"
-        dangerouslySetInnerHTML={{ __html: section.content }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.content) }}
       />
     ),
   })) || [];

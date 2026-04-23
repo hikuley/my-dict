@@ -238,7 +238,7 @@ jobs:
           ANTHROPIC_API_KEY: test-key
           SPRING_PROFILES_ACTIVE: mock-claude
         run: |
-          java -jar build/libs/*.jar &
+          java -Dspring.profiles.active=mock-claude -jar build/libs/*.jar &
           sleep 15
 
       - name: Verify backend is running
@@ -384,7 +384,7 @@ jobs:
           ANTHROPIC_API_KEY: test-key
           SPRING_PROFILES_ACTIVE: mock-claude
         run: |
-          java -jar build/libs/*.jar &
+          java -Dspring.profiles.active=mock-claude -jar build/libs/*.jar &
           sleep 15
 
       - name: Verify backend is running
@@ -553,7 +553,7 @@ jobs:
           ANTHROPIC_API_KEY: test-key
           SPRING_PROFILES_ACTIVE: mock-claude
         run: |
-          java -jar build/libs/*.jar &
+          java -Dspring.profiles.active=mock-claude -jar build/libs/*.jar &
           sleep 15
 
       - name: Verify backend is running
