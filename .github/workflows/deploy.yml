@@ -42,11 +42,6 @@ jobs:
           KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
           KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
           CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
-        options: >-
-          --health-cmd "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 10
 
     steps:
       - name: Checkout code
@@ -115,11 +110,6 @@ jobs:
           KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
           KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
           CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
-        options: >-
-          --health-cmd "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 10
 
     steps:
       - name: Checkout code
@@ -157,6 +147,20 @@ jobs:
       - name: Build backend
         working-directory: backend
         run: ./gradlew bootJar --no-daemon
+
+      - name: Wait for Kafka readiness
+        run: |
+          echo "Waiting for Kafka to be ready..."
+          for i in $(seq 1 30); do
+            if nc -z localhost 9092 2>/dev/null; then
+              echo "Kafka port is open, waiting for broker to stabilize..."
+              sleep 5
+              echo "Kafka is ready"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
 
       - name: Start backend
         working-directory: backend
