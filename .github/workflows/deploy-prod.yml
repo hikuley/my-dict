@@ -1,0 +1,117 @@
+name: Deploy to Prod
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    name: "Run All Tests"
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  version-and-release:
+    name: "Create Version & Release"
+    needs: [tests]
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version tag
+        id: version
+        run: |
+          DATE=$(date +%Y.%m.%d)
+          LATEST=$(git tag -l "v${DATE}.*" | sort -t. -k4 -n | tail -1)
+          if [ -z "$LATEST" ]; then
+            VERSION="v${DATE}.1"
+          else
+            SUFFIX=$(echo "$LATEST" | awk -F. '{print $NF}')
+            VERSION="v${DATE}.$((SUFFIX + 1))"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Next version: $VERSION"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            NOTES=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            NOTES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          if [ -z "$NOTES" ]; then
+            NOTES="- No changes since last release"
+          fi
+          echo "release_notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes "${{ steps.notes.outputs.release_notes }}"
+
+  deploy-to-prod:
+    name: "Deploy to Prod EC2"
+    needs: [version-and-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Create deploy package
+        run: |
+          tar czf /tmp/my-dict-deploy.tar.gz \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='infra' \
+            --exclude='.github' \
+            --exclude='.env' \
+            --exclude='.gradle' \
+            --exclude='backend/build' \
+            docker-compose.yml \
+            docker.sh \
+            frontend/ \
+            backend/
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_PROD_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_PROD_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload and deploy
+        run: |
+          VERSION="${{ needs.version-and-release.outputs.version }}"
+
+          scp -i ~/.ssh/deploy_key \
+            /tmp/my-dict-deploy.tar.gz \
+            ec2-user@${{ secrets.EC2_PROD_HOST }}:/tmp/my-dict-deploy.tar.gz
+
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_PROD_HOST }} << EOF
+            cd /opt/my-dict
+            tar xzf /tmp/my-dict-deploy.tar.gz
+            rm -f /tmp/my-dict-deploy.tar.gz
+            echo "$VERSION" > VERSION
+            docker compose down
+            docker compose up -d --build --force-recreate
+            echo "Waiting for services..."
+            sleep 15
+            docker compose ps
+            echo "Deployed version: $VERSION"
+          EOF

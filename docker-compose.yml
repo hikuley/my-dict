@@ -6,7 +6,7 @@ services:
       driver: awslogs
       options:
         awslogs-region: ${AWS_REGION}
-        awslogs-group: /my-dict
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP}
         awslogs-stream: db
     environment:
       POSTGRES_USER: mydict
@@ -29,7 +29,7 @@ services:
       driver: awslogs
       options:
         awslogs-region: ${AWS_REGION}
-        awslogs-group: /my-dict
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP}
         awslogs-stream: kafka
     environment:
       KAFKA_NODE_ID: 1
@@ -61,7 +61,7 @@ services:
       driver: awslogs
       options:
         awslogs-region: ${AWS_REGION}
-        awslogs-group: /my-dict
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP}
         awslogs-stream: api
     environment:
       DATABASE_URL: jdbc:postgresql://db:5432/mydict
@@ -86,7 +86,7 @@ services:
       driver: awslogs
       options:
         awslogs-region: ${AWS_REGION}
-        awslogs-group: /my-dict
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP}
         awslogs-stream: web
     ports:
       - "3000:80"

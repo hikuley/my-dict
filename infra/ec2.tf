@@ -93,15 +93,23 @@ data "aws_subnet" "selected" {
   id = data.aws_subnets.default.ids[0]
 }
 
+# --- Environments ---
+
+locals {
+  environments = toset(["dev", "prod"])
+}
+
 # --- Persistent EBS Volume for PostgreSQL data ---
 
 resource "aws_ebs_volume" "pgdata" {
+  for_each          = local.environments
   availability_zone = data.aws_subnet.selected.availability_zone
   size              = 10
   type              = "gp3"
 
   tags = {
-    Name = "${var.app_name}-pgdata"
+    Name        = "${var.app_name}-${each.key}-pgdata"
+    Environment = each.key
   }
 
   lifecycle {
@@ -112,6 +120,7 @@ resource "aws_ebs_volume" "pgdata" {
 # --- EC2 Instance ---
 
 resource "aws_instance" "app" {
+  for_each               = local.environments
   ami                    = data.aws_ami.al2023.id
   instance_type          = var.instance_type
   key_name               = aws_key_pair.app.key_name
@@ -127,95 +136,34 @@ resource "aws_instance" "app" {
   user_data = templatefile("${path.module}/user_data.sh", {
     anthropic_api_key = var.anthropic_api_key
     aws_region        = var.aws_region
+    environment       = each.key
+    app_name          = var.app_name
   })
 
   tags = {
-    Name = var.app_name
+    Name        = "${var.app_name}-${each.key}"
+    Environment = each.key
   }
 }
 
 # --- Attach persistent EBS volume to EC2 ---
 
 resource "aws_volume_attachment" "pgdata" {
+  for_each    = local.environments
   device_name = "/dev/xvdf"
-  volume_id   = aws_ebs_volume.pgdata.id
-  instance_id = aws_instance.app.id
+  volume_id   = aws_ebs_volume.pgdata[each.key].id
+  instance_id = aws_instance.app[each.key].id
 }
 
 # --- Elastic IP ---
 
 resource "aws_eip" "app" {
-  instance = aws_instance.app.id
+  for_each = local.environments
+  instance = aws_instance.app[each.key].id
   domain   = "vpc"
 
   tags = {
-    Name = "${var.app_name}-eip"
-  }
-}
-
-# --- Provision: upload app and start Docker Compose ---
-
-resource "null_resource" "deploy" {
-  depends_on = [aws_eip.app, aws_volume_attachment.pgdata, local_file.private_key]
-
-  triggers = {
-    instance_id = aws_instance.app.id
-  }
-
-  connection {
-    type        = "ssh"
-    user        = "ec2-user"
-    private_key = tls_private_key.app.private_key_openssh
-    host        = aws_eip.app.public_ip
-    timeout     = "5m"
-  }
-
-  # Wait for cloud-init (user_data) to finish installing Docker
-  provisioner "remote-exec" {
-    inline = [
-      "echo 'Waiting for cloud-init to complete...'",
-      "sudo cloud-init status --wait",
-      "echo 'Cloud-init done.'",
-    ]
-  }
-
-  # Create app tarball locally (includes pre-built dist/)
-  provisioner "local-exec" {
-    command = <<-EOT
-      cd ${path.module}/..
-      tar czf /tmp/my-dict-deploy.tar.gz \
-        --exclude='.git' \
-        --exclude='node_modules' \
-        --exclude='.terraform' \
-        --exclude='*.tfstate*' \
-        --exclude='infra' \
-        --exclude='.env' \
-        --exclude='.gradle' \
-        --exclude='backend/build' \
-        docker-compose.yml \
-        docker.sh \
-        frontend/ \
-        backend/
-    EOT
-  }
-
-  # Upload tarball to EC2
-  provisioner "file" {
-    source      = "/tmp/my-dict-deploy.tar.gz"
-    destination = "/tmp/my-dict-deploy.tar.gz"
-  }
-
-  # Extract and start services
-  provisioner "remote-exec" {
-    inline = [
-      "cd /opt/my-dict",
-      "tar xzf /tmp/my-dict-deploy.tar.gz",
-      "rm -f /tmp/my-dict-deploy.tar.gz",
-      "docker compose up -d --build",
-      "echo ''",
-      "echo 'Waiting for services to start...'",
-      "sleep 15",
-      "docker compose ps",
-    ]
+    Name        = "${var.app_name}-${each.key}-eip"
+    Environment = each.key
   }
 }

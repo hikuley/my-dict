@@ -32,7 +32,7 @@ resource "aws_iam_role_policy" "cloudwatch_logs" {
         "logs:PutLogEvents",
         "logs:DescribeLogStreams"
       ]
-      Resource = "${aws_cloudwatch_log_group.app.arn}:*"
+      Resource = [for lg in aws_cloudwatch_log_group.app : "${lg.arn}:*"]
     }]
   })
 }
@@ -45,10 +45,12 @@ resource "aws_iam_instance_profile" "app" {
 # --- CloudWatch Log Group ---
 
 resource "aws_cloudwatch_log_group" "app" {
-  name              = "/my-dict"
+  for_each          = local.environments
+  name              = "/${var.app_name}-${each.key}"
   retention_in_days = 14
 
   tags = {
-    Name = var.app_name
+    Name        = "${var.app_name}-${each.key}"
+    Environment = each.key
   }
 }

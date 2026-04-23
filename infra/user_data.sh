@@ -71,6 +71,7 @@ chown ec2-user:ec2-user /opt/my-dict
 cat > /opt/my-dict/.env <<'ENVEOF'
 ANTHROPIC_API_KEY=${anthropic_api_key}
 AWS_REGION=${aws_region}
+CLOUDWATCH_LOG_GROUP=/${app_name}-${environment}
 ENVEOF
 chmod 600 /opt/my-dict/.env
 chown ec2-user:ec2-user /opt/my-dict/.env
