@@ -71,8 +71,9 @@ test.describe('Word Detail', () => {
     await row.locator('button[title="Detail"]').or(row.locator('button').filter({ hasText: /detail/i })).first().click();
     await page.waitForSelector('.ant-modal', { state: 'visible', timeout: 5000 });
 
-    // Should have collapsible sections
+    // Should have collapsible sections (wait for API response and render)
     const collapseItems = page.locator('.ant-modal .ant-collapse-item');
+    await expect(collapseItems.first()).toBeVisible({ timeout: 10000 });
     const count = await collapseItems.count();
     expect(count).toBeGreaterThanOrEqual(1);
   });
