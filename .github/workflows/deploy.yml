@@ -241,7 +241,7 @@ jobs:
             /tmp/my-dict-deploy.tar.gz \
             ec2-user@${{ secrets.EC2_HOST }}:/tmp/my-dict-deploy.tar.gz
 
-          ssh -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
             cd /opt/my-dict
             tar xzf /tmp/my-dict-deploy.tar.gz
             rm -f /tmp/my-dict-deploy.tar.gz
