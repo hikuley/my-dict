@@ -68,9 +68,17 @@ resource "aws_security_group" "app" {
   }
 
   ingress {
-    description = "HTTP - Web UI"
+    description = "HTTP - Web UI (legacy, remove after DNS propagation)"
     from_port   = 3000
     to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTP - Standard"
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -138,6 +146,7 @@ resource "aws_instance" "app" {
     environment = each.key
     app_name    = var.app_name
     secret_name = aws_secretsmanager_secret.app[each.key].name
+    domain_name = var.domain_name
   })
 
   tags = {

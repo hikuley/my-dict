@@ -75,6 +75,7 @@ jobs:
           MAIL_SMTP_STARTTLS=true
           AWS_REGION=eu-west-1
           CLOUDWATCH_LOG_GROUP=/my-dict-dev
+          FRONTEND_URL=http://dev.kuleysoft.com
           ENV_END
           # Remove leading whitespace from .env
           sed -i 's/^[[:space:]]*//' /opt/my-dict/.env

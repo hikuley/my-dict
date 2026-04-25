@@ -92,6 +92,7 @@ MAIL_SMTP_AUTH=true
 MAIL_SMTP_STARTTLS=true
 AWS_REGION=${aws_region}
 CLOUDWATCH_LOG_GROUP=/${app_name}-${environment}
+FRONTEND_URL=http://${environment == "prod" ? "${domain_name}" : "dev.${domain_name}"}
 ENVEOF
 chmod 600 /opt/my-dict/.env
 chown ec2-user:ec2-user /opt/my-dict/.env

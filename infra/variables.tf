@@ -62,3 +62,9 @@ variable "github_token" {
   type        = string
   sensitive   = true
 }
+
+variable "domain_name" {
+  description = "Root domain name for the application (e.g. kuleysoft.com)"
+  type        = string
+  default     = "kuleysoft.com"
+}
