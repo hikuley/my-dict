@@ -17,5 +17,7 @@ resource "aws_secretsmanager_secret_version" "app" {
   secret_string = jsonencode({
     ANTHROPIC_API_KEY = var.anthropic_api_key
     GOOGLE_CLIENT_ID  = var.google_client_id
+    MAIL_USERNAME     = var.mail_username
+    MAIL_PASSWORD     = var.mail_password
   })
 }

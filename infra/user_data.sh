@@ -77,11 +77,19 @@ SECRET_JSON=$(aws secretsmanager get-secret-value \
 
 ANTHROPIC_API_KEY=$(echo "$${SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['ANTHROPIC_API_KEY'])")
 GOOGLE_CLIENT_ID=$(echo "$${SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['GOOGLE_CLIENT_ID'])")
+MAIL_USERNAME=$(echo "$${SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['MAIL_USERNAME'])")
+MAIL_PASSWORD=$(echo "$${SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['MAIL_PASSWORD'])")
 
 # --- Write environment file ---
 cat > /opt/my-dict/.env <<ENVEOF
 ANTHROPIC_API_KEY=$${ANTHROPIC_API_KEY}
 GOOGLE_CLIENT_ID=$${GOOGLE_CLIENT_ID}
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=$${MAIL_USERNAME}
+MAIL_PASSWORD=$${MAIL_PASSWORD}
+MAIL_SMTP_AUTH=true
+MAIL_SMTP_STARTTLS=true
 AWS_REGION=${aws_region}
 CLOUDWATCH_LOG_GROUP=/${app_name}-${environment}
 ENVEOF

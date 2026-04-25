@@ -22,6 +22,18 @@ variable "google_client_id" {
   sensitive   = true
 }
 
+variable "mail_username" {
+  description = "SMTP username (Gmail address) for sending emails"
+  type        = string
+  sensitive   = true
+}
+
+variable "mail_password" {
+  description = "SMTP password (Google App Password) for sending emails"
+  type        = string
+  sensitive   = true
+}
+
 variable "ssh_allowed_cidr" {
   description = "CIDR block allowed to SSH (default: open, restrict to your IP for security)"
   type        = string
