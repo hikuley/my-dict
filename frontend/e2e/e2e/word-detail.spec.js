@@ -41,13 +41,12 @@ test.describe('Word Detail', () => {
     const detailButton = row.locator('button[title="Detail"]').or(row.locator('button').filter({ hasText: /detail/i })).first();
     await detailButton.click();
 
-    // Wait for modal to appear
+    // Wait for modal to appear and content to load
     await page.waitForSelector('.ant-modal', { state: 'visible', timeout: 5000 });
 
-    // Verify modal content
-    const modalContent = await page.locator('.ant-modal').textContent();
-    expect(modalContent).toContain('Ephemeral');
-    expect(modalContent).toContain('/ɪˈfɛm.ər.əl/');
+    // Verify modal content (wait for async fetch to complete)
+    await expect(page.locator('.ant-modal')).toContainText('Ephemeral', { timeout: 10000 });
+    await expect(page.locator('.ant-modal')).toContainText('/ɪˈfɛm.ər.əl/', { timeout: 10000 });
   });
 
   test('should open word detail modal via double-click', async ({ page, request }) => {
