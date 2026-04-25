@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createWord, safeDelete } from '../fixtures/api-helpers.js';
+import { createWord, safeDelete, authenticatePage } from '../fixtures/api-helpers.js';
 
 const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 const SEARCH_SLUG = 'e2e-search-word';
@@ -23,7 +23,7 @@ test.describe('Word Search', () => {
     await safeDelete(request, SEARCH_SLUG);
   });
 
-  test('should search and find a word', async ({ page }) => {
+  test('should search and find a word', async ({ page, request }) => {
     // Mock search API — backend FTS uses English stemming for title but simple
     // dictionary for queries, so dynamically created words may not match.
     await page.route('**/api/words/search**', async (route) => {
@@ -47,7 +47,7 @@ test.describe('Word Search', () => {
       }
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     const searchInput = page.locator('input').first();
@@ -58,8 +58,8 @@ test.describe('Word Search', () => {
     await expect(resultRow).toBeVisible({ timeout: 5000 });
   });
 
-  test('should show no results for gibberish query', async ({ page }) => {
-    await page.goto('/');
+  test('should show no results for gibberish query', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     const searchInput = page.locator('input').first();
@@ -75,8 +75,8 @@ test.describe('Word Search', () => {
     }
   });
 
-  test('should clear search and restore full list', async ({ page }) => {
-    await page.goto('/');
+  test('should clear search and restore full list', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
     const initialCount = await page.locator('table tbody tr').count();
 

@@ -1,8 +1,17 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
+const getAuthHeaders = (getState) => {
+  const { auth } = getState();
+  const headers = { 'Content-Type': 'application/json' };
+  if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`;
+  return headers;
+};
+
 // Fetch words with pagination
-export const fetchWords = createAsyncThunk('words/fetchWords', async ({ page = 1, limit = 20 } = {}) => {
-  const response = await fetch(`/api/words?page=${page}&limit=${limit}`);
+export const fetchWords = createAsyncThunk('words/fetchWords', async ({ page = 1, limit = 20 } = {}, { getState }) => {
+  const response = await fetch(`/api/words?page=${page}&limit=${limit}`, {
+    headers: getAuthHeaders(getState),
+  });
   if (!response.ok) {
     throw new Error('Failed to load word data');
   }
@@ -10,8 +19,10 @@ export const fetchWords = createAsyncThunk('words/fetchWords', async ({ page = 1
 });
 
 // Fetch single word detail by slug
-export const fetchWordBySlug = createAsyncThunk('words/fetchWordBySlug', async (slug) => {
-  const response = await fetch(`/api/words/${encodeURIComponent(slug)}`);
+export const fetchWordBySlug = createAsyncThunk('words/fetchWordBySlug', async (slug, { getState }) => {
+  const response = await fetch(`/api/words/${encodeURIComponent(slug)}`, {
+    headers: getAuthHeaders(getState),
+  });
   if (!response.ok) {
     throw new Error('Word not found');
   }
@@ -19,8 +30,10 @@ export const fetchWordBySlug = createAsyncThunk('words/fetchWordBySlug', async (
 });
 
 // Search words via full-text search
-export const searchWords = createAsyncThunk('words/searchWords', async (query) => {
-  const response = await fetch(`/api/words/search?q=${encodeURIComponent(query)}`);
+export const searchWords = createAsyncThunk('words/searchWords', async (query, { getState }) => {
+  const response = await fetch(`/api/words/search?q=${encodeURIComponent(query)}`, {
+    headers: getAuthHeaders(getState),
+  });
   if (!response.ok) {
     throw new Error('Search failed');
   }
@@ -29,10 +42,10 @@ export const searchWords = createAsyncThunk('words/searchWords', async (query) =
 });
 
 // Queue a new word for async generation via Kafka
-export const generateWord = createAsyncThunk('words/generateWord', async (word) => {
+export const generateWord = createAsyncThunk('words/generateWord', async (word, { getState }) => {
   const response = await fetch('/api/words/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(getState),
     body: JSON.stringify({ word }),
   });
   if (!response.ok) {

@@ -105,10 +105,16 @@ jobs:
       - name: Run integration tests
         working-directory: backend
         env:
-          DATABASE_URL: jdbc:postgresql://localhost:5432/mydict
+          DATABASE_URL: jdbc:postgresql://localhost:5432/mydict?stringtype=unspecified
           DB_USER: mydict
           DB_PASSWORD: mydict
           KAFKA_BROKER: localhost:9092
+          JWT_SECRET: ci-test-jwt-secret-key-that-is-at-least-32-characters-long
+          JWT_EXPIRATION_MS: 86400000
+          GOOGLE_CLIENT_ID: test-google-client-id
+          GOOGLE_CLIENT_SECRET: test-google-client-secret
+          MAIL_HOST: localhost
+          MAIL_PORT: 1025
         run: ./gradlew integrationTest --no-daemon
 
       - name: Upload test results
@@ -232,12 +238,17 @@ jobs:
       - name: Start backend
         working-directory: backend
         env:
-          DATABASE_URL: jdbc:postgresql://localhost:5432/mydict
+          DATABASE_URL: jdbc:postgresql://localhost:5432/mydict?stringtype=unspecified
           DB_USER: mydict
           DB_PASSWORD: mydict
           KAFKA_BROKER: localhost:9092
           ANTHROPIC_API_KEY: test-key
           SPRING_PROFILES_ACTIVE: mock-claude
+          JWT_SECRET: ci-test-jwt-secret-key-that-is-at-least-32-characters-long
+          JWT_EXPIRATION_MS: 86400000
+          GOOGLE_CLIENT_ID: test-google-client-id
+          MAIL_HOST: localhost
+          MAIL_PORT: 1025
         run: |
           java -Dspring.profiles.active=mock-claude -jar build/libs/*.jar &
           sleep 15
@@ -246,14 +257,14 @@ jobs:
         run: |
           echo "Checking backend health..."
           for i in $(seq 1 10); do
-            if curl -sf http://localhost:3001/api/words?page=0\&size=1 > /dev/null 2>&1; then
+            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
               echo "Backend is healthy"
               break
             fi
             echo "Waiting for backend... ($i/10)"
             sleep 3
           done
-          curl -sf http://localhost:3001/api/words?page=0\&size=1 || (echo "ERROR: Backend not responding" && exit 1)
+          curl -sf http://localhost:3001/api/health || (echo "ERROR: Backend not responding" && exit 1)
 
       - name: Build and serve frontend
         working-directory: frontend
@@ -378,12 +389,17 @@ jobs:
       - name: Start backend
         working-directory: backend
         env:
-          DATABASE_URL: jdbc:postgresql://localhost:5432/mydict
+          DATABASE_URL: jdbc:postgresql://localhost:5432/mydict?stringtype=unspecified
           DB_USER: mydict
           DB_PASSWORD: mydict
           KAFKA_BROKER: localhost:9092
           ANTHROPIC_API_KEY: test-key
           SPRING_PROFILES_ACTIVE: mock-claude
+          JWT_SECRET: ci-test-jwt-secret-key-that-is-at-least-32-characters-long
+          JWT_EXPIRATION_MS: 86400000
+          GOOGLE_CLIENT_ID: test-google-client-id
+          MAIL_HOST: localhost
+          MAIL_PORT: 1025
         run: |
           java -Dspring.profiles.active=mock-claude -jar build/libs/*.jar &
           sleep 15
@@ -547,12 +563,17 @@ jobs:
       - name: Start backend
         working-directory: backend
         env:
-          DATABASE_URL: jdbc:postgresql://localhost:5432/mydict
+          DATABASE_URL: jdbc:postgresql://localhost:5432/mydict?stringtype=unspecified
           DB_USER: mydict
           DB_PASSWORD: mydict
           KAFKA_BROKER: localhost:9092
           ANTHROPIC_API_KEY: test-key
           SPRING_PROFILES_ACTIVE: mock-claude
+          JWT_SECRET: ci-test-jwt-secret-key-that-is-at-least-32-characters-long
+          JWT_EXPIRATION_MS: 86400000
+          GOOGLE_CLIENT_ID: test-google-client-id
+          MAIL_HOST: localhost
+          MAIL_PORT: 1025
         run: |
           java -Dspring.profiles.active=mock-claude -jar build/libs/*.jar &
           sleep 15
@@ -561,14 +582,14 @@ jobs:
         run: |
           echo "Checking backend health..."
           for i in $(seq 1 10); do
-            if curl -sf http://localhost:3001/api/words?page=0\&size=1 > /dev/null 2>&1; then
+            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
               echo "Backend is healthy"
               break
             fi
             echo "Waiting for backend... ($i/10)"
             sleep 3
           done
-          curl -sf http://localhost:3001/api/words?page=0\&size=1 || (echo "ERROR: Backend not responding" && exit 1)
+          curl -sf http://localhost:3001/api/health || (echo "ERROR: Backend not responding" && exit 1)
 
       - name: Build and serve frontend
         working-directory: frontend

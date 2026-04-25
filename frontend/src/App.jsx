@@ -1,7 +1,25 @@
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { ConfigProvider } from 'antd';
 import store from './store';
 import WordList from './components/WordList';
+import AuthPage from './components/AuthPage';
+import VerifyEmailPage from './components/VerifyEmailPage';
+import { selectIsAuthenticated, selectUser } from './store/authSlice';
+
+const AppContent = () => {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const user = useSelector(selectUser);
+
+  if (!isAuthenticated) {
+    return <AuthPage />;
+  }
+
+  if (user && !user.isVerified) {
+    return <VerifyEmailPage />;
+  }
+
+  return <WordList />;
+};
 
 const App = () => {
   return (
@@ -14,7 +32,7 @@ const App = () => {
       }}
     >
       <Provider store={store}>
-        <WordList />
+        <AppContent />
       </Provider>
     </ConfigProvider>
   );

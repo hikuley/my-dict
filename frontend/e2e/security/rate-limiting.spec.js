@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { authHeaders, authenticatePage } from '../fixtures/api-helpers.js';
 
 /**
  * Rate Limiting & DoS Penetration Tests (Cases 39-42)
@@ -14,6 +15,7 @@ test.describe('Rate Limiting', () => {
 
   // Case 39: Generate endpoint rate limiting
   test('should rate limit rapid generate requests', async ({ request }) => {
+    const headers = await authHeaders(request);
     const results = [];
     const startTime = Date.now();
 
@@ -21,6 +23,7 @@ test.describe('Rate Limiting', () => {
     const promises = Array.from({ length: 50 }, (_, i) =>
       request.post(`${API_URL}/api/words/generate`, {
         data: { word: `rate-limit-test-${i}-${Date.now()}` },
+        headers,
       }).then(r => r.status())
     );
 
@@ -45,12 +48,14 @@ test.describe('Rate Limiting', () => {
 
   // Case 40: Search endpoint rate limiting
   test('should rate limit rapid search requests', async ({ request }) => {
+    const headers = await authHeaders(request);
     const results = [];
 
     // Fire 100 rapid search requests
     const promises = Array.from({ length: 100 }, (_, i) =>
       request.get(`${API_URL}/api/words/search`, {
         params: { q: `search-${i}` },
+        headers,
       }).then(r => r.status())
     );
 
@@ -112,7 +117,7 @@ test.describe('Rate Limiting', () => {
   });
 
   // Case 42: Large response handling
-  test('should handle words with very large sections content', async ({ page }) => {
+  test('should handle words with very large sections content', async ({ page, request }) => {
     // Mock a word with huge sections content
     const hugeSections = JSON.stringify([
       {
@@ -143,7 +148,7 @@ test.describe('Rate Limiting', () => {
       });
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr');
     await page.locator('table tbody tr').first().locator('button[title="Detail"]').click();
     await page.waitForSelector('.ant-modal', { state: 'visible' });

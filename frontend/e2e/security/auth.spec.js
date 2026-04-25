@@ -1,11 +1,12 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { authHeaders } from '../fixtures/api-helpers.js';
 
 /**
  * Authentication & Authorization Penetration Tests (Cases 14-18)
  *
- * Tests that verify the lack of authentication/authorization controls
- * and document the security risks of unprotected endpoints.
+ * Tests that verify endpoints properly require authentication
+ * and that authenticated requests are handled correctly.
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -13,37 +14,36 @@ const API_URL = process.env.API_URL || BASE_URL;
 
 test.describe('Auth - Unauthenticated API access', () => {
 
-  // Case 14: Unauthenticated word generation
-  test('generate endpoint accepts requests without authentication', async ({ request }) => {
+  // Case 14: Unauthenticated word generation should be rejected
+  test('generate endpoint rejects requests without authentication', async ({ request }) => {
     const response = await request.post(`${API_URL}/api/words/generate`, {
       data: { word: 'auth-test-word-' + Date.now() },
     });
 
-    // Document: this endpoint has no auth - should ideally require authentication
-    // Current behavior: accepts unauthenticated requests
-    expect([202, 409]).toContain(response.status());
+    // Endpoint requires auth — should return 401 or 403
+    expect([401, 403]).toContain(response.status());
   });
 
-  // Case 15: Unauthenticated word deletion
-  test('delete endpoint accepts requests without authentication', async ({ request }) => {
-    // Try to delete a non-existent word - testing that the endpoint is accessible
+  // Case 15: Unauthenticated word deletion should be rejected
+  test('delete endpoint rejects requests without authentication', async ({ request }) => {
     const response = await request.delete(
       `${API_URL}/api/words/auth-test-nonexistent-${Date.now()}`
     );
 
-    // Document: delete endpoint has no auth - should require authentication
-    // Current behavior: returns 404 (accessible without auth)
-    expect(response.status()).toBe(404);
+    // Endpoint requires auth — should return 401 or 403
+    expect([401, 403]).toContain(response.status());
   });
 
-  // Case 16: Mass deletion attempt (rate limiting check)
+  // Case 16: Authenticated mass deletion attempt (rate limiting check)
   test('no rate limiting on delete endpoint', async ({ request }) => {
+    const headers = await authHeaders(request);
     const results = [];
 
     // Attempt 20 rapid deletions
     for (let i = 0; i < 20; i++) {
       const response = await request.delete(
-        `${API_URL}/api/words/mass-delete-test-${i}`
+        `${API_URL}/api/words/mass-delete-test-${i}`,
+        { headers }
       );
       results.push(response.status());
     }
@@ -89,16 +89,24 @@ test.describe('Auth - Unauthenticated API access', () => {
     expect(typeof wsConnected).toBe('boolean');
   });
 
-  // Case 18: API enumeration - dump all words without auth
+  // Case 18: API enumeration - verify auth is required for word list
   test('word list is accessible without authentication for full enumeration', async ({ request }) => {
+    // Without auth, should be rejected
+    const unauthResponse = await request.get(`${API_URL}/api/words`, {
+      params: { page: 1, limit: 100 },
+    });
+    expect([401, 403]).toContain(unauthResponse.status());
+
+    // With auth, should work
+    const headers = await authHeaders(request);
     let totalEnumerated = 0;
     let currentPage = 1;
     let totalPages = 1;
 
-    // Enumerate up to 5 pages
     while (currentPage <= totalPages && currentPage <= 5) {
       const response = await request.get(`${API_URL}/api/words`, {
         params: { page: currentPage, limit: 100 },
+        headers,
       });
 
       expect(response.status()).toBe(200);
@@ -108,10 +116,6 @@ test.describe('Auth - Unauthenticated API access', () => {
       currentPage++;
     }
 
-    // Document: entire dictionary is enumerable without auth
-    if (totalEnumerated > 0) {
-      console.warn(`WARNING: Enumerated ${totalEnumerated} words without authentication`);
-    }
     expect(totalEnumerated).toBeGreaterThanOrEqual(0);
   });
 });

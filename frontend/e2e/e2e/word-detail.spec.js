@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createWord, safeDelete } from '../fixtures/api-helpers.js';
+import { createWord, safeDelete, authenticatePage } from '../fixtures/api-helpers.js';
 
 const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 const DETAIL_SLUG = 'e2e-detail-word';
@@ -30,8 +30,8 @@ test.describe('Word Detail', () => {
     await safeDelete(request, DETAIL_SLUG);
   });
 
-  test('should open word detail modal via Detail button', async ({ page }) => {
-    await page.goto('/');
+  test('should open word detail modal via Detail button', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     // Find the row with our test word and click Detail
@@ -50,8 +50,8 @@ test.describe('Word Detail', () => {
     expect(modalContent).toContain('/ɪˈfɛm.ər.əl/');
   });
 
-  test('should open word detail modal via double-click', async ({ page }) => {
-    await page.goto('/');
+  test('should open word detail modal via double-click', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     const row = page.locator('table tbody tr', { hasText: 'Ephemeral' });
@@ -63,8 +63,8 @@ test.describe('Word Detail', () => {
     expect(modalContent).toContain('Ephemeral');
   });
 
-  test('should display word sections in detail modal', async ({ page }) => {
-    await page.goto('/');
+  test('should display word sections in detail modal', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     const row = page.locator('table tbody tr', { hasText: 'Ephemeral' });
@@ -78,8 +78,8 @@ test.describe('Word Detail', () => {
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
-  test('should close detail modal', async ({ page }) => {
-    await page.goto('/');
+  test('should close detail modal', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     const row = page.locator('table tbody tr', { hasText: 'Ephemeral' });

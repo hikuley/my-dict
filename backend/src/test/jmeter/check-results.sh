@@ -22,10 +22,7 @@ ERRORS=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $8}' | grep -ci 'false' 
 ERROR_RATE=$(awk "BEGIN {printf \"%.2f\", ($ERRORS / $TOTAL) * 100}")
 
 # Calculate p95 from the "elapsed" column (column 2, 1-indexed)
-P95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{vals[NR]=$2} END {
-  n=NR; for(i=1;i<=n;i++) a[i]=vals[i]; asort(a);
-  idx=int(n*0.95+0.5); if(idx<1) idx=1; print a[idx]
-}')
+P95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $2}' | sort -n | awk -v n="$TOTAL" 'NR==int(n*0.95+0.5) {print; exit}')
 
 # Calculate additional stats
 AVG=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{sum += $2; count++} END {printf "%.0f", sum/count}')
@@ -51,32 +48,24 @@ echo "----------------------------------------"
 printf "  %-35s %8s %8s %8s %8s\n" "Endpoint" "Count" "Avg(ms)" "P95(ms)" "Err%"
 echo "  -------------------------------------------------------------------"
 
-tail -n +2 "$RESULTS_FILE" | awk -F',' '
-{
-  label = $3
-  elapsed = $2
-  success = $8
-  count[label]++
-  sum[label] += elapsed
-  if (tolower(success) == "false") errs[label]++
-  times[label][count[label]] = elapsed
-}
-END {
-  for (label in count) {
-    avg = sum[label] / count[label]
-    err_pct = (errs[label]+0) / count[label] * 100
-    # Sort times for p95
-    n = count[label]
-    p95_idx = int(n * 0.95 + 0.5)
-    if (p95_idx < 1) p95_idx = 1
-    # Use a simple selection via asort
-    delete sorted
-    for (i = 1; i <= n; i++) sorted[i] = times[label][i]
-    asort(sorted)
-    p95 = sorted[p95_idx]
-    printf "  %-35s %8d %8.0f %8.0f %7.1f%%\n", label, n, avg, p95, err_pct
-  }
-}' | sort
+# Get unique labels
+LABELS=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $3}' | sort -u)
+
+while IFS= read -r label; do
+  [[ -z "$label" ]] && continue
+  # Extract stats for this label
+  read -r cnt errcnt avg_val <<< $(tail -n +2 "$RESULTS_FILE" | awk -F',' -v lbl="$label" '$3==lbl {
+    sum += $2; count++; if (tolower($8)=="false") errs++
+  } END {
+    printf "%d %d %.0f\n", count, errs+0, (count>0 ? sum/count : 0)
+  }')
+
+  # P95 via sort
+  EP95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' -v lbl="$label" '$3==lbl {print $2}' | sort -n | awk -v n="$cnt" 'NR==int(n*0.95+0.5) {print; exit}')
+  ERR_PCT=$(awk "BEGIN {printf \"%.1f\", ($errcnt / $cnt) * 100}")
+
+  printf "  %-35s %8d %8s %8s %7s%%\n" "$label" "$cnt" "$avg_val" "${EP95:-0}" "$ERR_PCT"
+done <<< "$LABELS" | sort
 
 echo ""
 

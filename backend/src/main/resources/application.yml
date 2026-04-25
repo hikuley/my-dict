@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/mydict}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/mydict?stringtype=unspecified}
     username: ${DB_USER:mydict}
     password: ${DB_PASSWORD:mydict}
     driver-class-name: org.postgresql.Driver
@@ -27,7 +27,29 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope: email,profile
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:false}
 
 app:
   anthropic-api-key: ${ANTHROPIC_API_KEY:}
+  jwt-secret: ${JWT_SECRET:default-dev-secret-key-change-in-production-min-32-chars}
+  jwt-expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
   kafka-topic: word-generate

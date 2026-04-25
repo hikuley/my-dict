@@ -8,6 +8,7 @@ import {
   InfoCircleOutlined,
   LeftOutlined,
   RightOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 import {
   fetchWords,
@@ -24,6 +25,7 @@ import {
   generateWord,
   resetGenerateStatus,
 } from '../store/wordsSlice';
+import { logout, selectUser, selectToken } from '../store/authSlice';
 import useWebSocket from '../hooks/useWebSocket';
 import useProgressBars from '../hooks/useProgressBars';
 import AddWordModal from './AddWordModal';
@@ -41,6 +43,8 @@ const WordList = () => {
   const total = useSelector(selectTotal);
   const wordsStatus = useSelector(selectWordsStatus);
   const searchStatus = useSelector(selectSearchStatus);
+  const user = useSelector(selectUser);
+  const token = useSelector(selectToken);
 
   const isSearching = searchQuery.length >= 2;
   const tableLoading = isSearching ? searchStatus === 'loading' : wordsStatus === 'loading';
@@ -201,7 +205,9 @@ const WordList = () => {
       okType: 'danger',
       cancelText: 'No',
       onOk: () => {
-        return fetch('/api/words/' + encodeURIComponent(word.slug), { method: 'DELETE' })
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return fetch('/api/words/' + encodeURIComponent(word.slug), { method: 'DELETE', headers })
           .then((res) => {
             if (!res.ok) throw new Error('Delete failed');
             dispatch(fetchWords({ page: 1 }));
@@ -265,11 +271,20 @@ const WordList = () => {
         padding: '12px 20px',
         background: '#fff',
         borderBottom: '1px solid #e8e8e8',
-        textAlign: 'center',
-        fontSize: '18px',
-        fontWeight: 600,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
       }}>
-        📚 My Dictionary
+        <div style={{ fontSize: '18px', fontWeight: 600 }}>📚 My Dictionary</div>
+        <Space>
+          {user && <Text type="secondary">{user.name}</Text>}
+          <Button
+            type="text"
+            icon={<LogoutOutlined />}
+            onClick={() => dispatch(logout())}
+            title="Log out"
+          />
+        </Space>
       </div>
 
       {/* Progress bars */}

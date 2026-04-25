@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/mydict}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/mydict?stringtype=unspecified}
     username: ${DB_USER:mydict}
     password: ${DB_PASSWORD:mydict}
     driver-class-name: org.postgresql.Driver
@@ -25,7 +25,21 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-google-client-id
+            client-secret: test-google-client-secret
+            scope: email,profile
+  mail:
+    host: localhost
+    port: 1025
 
 app:
   anthropic-api-key: test-key
+  jwt-secret: test-jwt-secret-key-that-is-at-least-32-characters-long
+  jwt-expiration-ms: 86400000
+  frontend-url: http://localhost:3000
   kafka-topic: word-generate

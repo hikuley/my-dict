@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { authHeaders } from '../fixtures/api-helpers.js';
 
 /**
  * Security Headers Penetration Tests (Cases 29-34)
@@ -102,14 +103,15 @@ test.describe('Security Headers', () => {
 
   // Additional: Check API responses for security headers
   test('API responses should include security headers', async ({ request }) => {
-    const response = await request.get(`${API_URL}/api/words?page=1&limit=1`);
+    const headers = await authHeaders(request);
+    const response = await request.get(`${API_URL}/api/words?page=1&limit=1`, { headers });
 
-    const headers = response.headers();
+    const respHeaders = response.headers();
     const missing = [];
 
-    if (!headers['x-content-type-options']) missing.push('X-Content-Type-Options');
-    if (!headers['x-frame-options']) missing.push('X-Frame-Options');
-    if (!headers['content-security-policy']) missing.push('Content-Security-Policy');
+    if (!respHeaders['x-content-type-options']) missing.push('X-Content-Type-Options');
+    if (!respHeaders['x-frame-options']) missing.push('X-Frame-Options');
+    if (!respHeaders['content-security-policy']) missing.push('Content-Security-Policy');
 
     if (missing.length > 0) {
       console.warn(`WARNING: API missing security headers: ${missing.join(', ')}`);

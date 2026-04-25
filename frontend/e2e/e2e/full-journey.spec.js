@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createWord, safeDelete } from '../fixtures/api-helpers.js';
+import { createWord, safeDelete, authenticatePage } from '../fixtures/api-helpers.js';
 
 const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 const FLOW_SLUG = 'e2e-flow-word';
@@ -23,8 +23,8 @@ test.describe('Full User Journey', () => {
     });
     expect(createResponse.status()).toBe(201);
 
-    // Step 2: Load the app and verify word appears in list
-    await page.goto('/');
+    // Step 2: Load the app (authenticated) and verify word appears in list
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
     const row = page.locator('table tbody tr', { hasText: 'Ubiquitous' });
     await expect(row).toBeVisible({ timeout: 5000 });

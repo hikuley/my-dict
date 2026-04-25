@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { safeDelete } from '../fixtures/api-helpers.js';
+import { safeDelete, authenticatePage } from '../fixtures/api-helpers.js';
 
 const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 
@@ -10,7 +10,7 @@ test.describe('Add Word (Generate via Kafka)', () => {
     await safeDelete(request, testWord);
   });
 
-  test('should open add word modal and submit', async ({ page }) => {
+  test('should open add word modal and submit', async ({ page, request }) => {
     // Mock the Claude API generate endpoint to return 202 without calling Anthropic
     await page.route('**/api/words/generate', async (route) => {
       const body = route.request().postDataJSON();
@@ -27,7 +27,7 @@ test.describe('Add Word (Generate via Kafka)', () => {
       });
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     // Click the Add Word button
@@ -49,7 +49,7 @@ test.describe('Add Word (Generate via Kafka)', () => {
     await page.waitForSelector('.ant-modal', { state: 'hidden', timeout: 10000 });
   });
 
-  test('should show progress indicator after submitting word', async ({ page }) => {
+  test('should show progress indicator after submitting word', async ({ page, request }) => {
     // Mock the Claude API generate endpoint to return 202 without calling Anthropic
     await page.route('**/api/words/generate', async (route) => {
       const body = route.request().postDataJSON();
@@ -66,7 +66,7 @@ test.describe('Add Word (Generate via Kafka)', () => {
       });
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     const addButton = page.locator('button:has-text("Add Word")').or(page.locator('button:has-text("Add")'));

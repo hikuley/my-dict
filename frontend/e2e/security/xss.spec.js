@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { XSS_PAYLOADS } from '../fixtures/payloads.js';
-import { createXssWord, safeDelete } from '../fixtures/api-helpers.js';
+import { createXssWord, safeDelete, authenticatePage } from '../fixtures/api-helpers.js';
 
 /**
  * XSS Penetration Tests (Cases 1-8)
@@ -21,7 +21,6 @@ test.describe('XSS - Stored XSS via section content', () => {
     await safeDelete(request, slug);
     await createXssWord(request, slug, XSS_PAYLOADS.scriptTag);
 
-    await page.goto('/');
     await page.route('**/api/words?*', async (route) => {
       await route.fulfill({
         json: {
@@ -31,7 +30,7 @@ test.describe('XSS - Stored XSS via section content', () => {
       });
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     // Set up XSS detection flag after final navigation
     await page.evaluate(() => { window.__xss_fired = false; });
     await page.waitForSelector('table tbody tr');
@@ -69,7 +68,7 @@ test.describe('XSS - Stored XSS via section content', () => {
       });
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     await page.evaluate(() => { window.__xss_fired = false; });
     await page.waitForSelector('table tbody tr');
     await page.locator('table tbody tr').first().locator('button[title="Detail"]').click();
@@ -98,7 +97,7 @@ test.describe('XSS - Stored XSS via section content', () => {
       });
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     await page.evaluate(() => { window.__xss_fired = false; });
     await page.waitForSelector('table tbody tr');
     await page.locator('table tbody tr').first().locator('button[title="Detail"]').click();
@@ -132,7 +131,7 @@ test.describe('XSS - Stored XSS via section content', () => {
       });
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     await page.evaluate(() => { window.__xss_fired = false; });
     await page.waitForSelector('table tbody tr');
     await page.locator('table tbody tr').first().locator('button[title="Detail"]').click();
@@ -160,7 +159,7 @@ test.describe('XSS - Stored XSS via section content', () => {
       });
     });
 
-    await page.goto('/');
+    await authenticatePage(page, request);
     await page.evaluate(() => { window.__xss_fired = false; });
     await page.waitForSelector('table tbody tr');
     await page.locator('table tbody tr').first().locator('button[title="Detail"]').click();
@@ -177,8 +176,8 @@ test.describe('XSS - Stored XSS via section content', () => {
 test.describe('XSS - Reflected XSS via inputs', () => {
 
   // Case 6: XSS in search input
-  test('should not render search input value as HTML', async ({ page }) => {
-    await page.goto('/');
+  test('should not render search input value as HTML', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.evaluate(() => { window.__xss_fired = false; });
 
     const searchInput = page.locator('input[placeholder*="Search"]');
@@ -194,8 +193,8 @@ test.describe('XSS - Reflected XSS via inputs', () => {
   });
 
   // Case 7: XSS in word generation input
-  test('should not render generate word input as HTML in notifications', async ({ page }) => {
-    await page.goto('/');
+  test('should not render generate word input as HTML in notifications', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.evaluate(() => { window.__xss_fired = false; });
 
     let dialogFired = false;
@@ -229,8 +228,8 @@ test.describe('XSS - Reflected XSS via inputs', () => {
   });
 
   // Case 8: XSS via WebSocket message spoofing
-  test('should safely render WebSocket message data in notifications', async ({ page }) => {
-    await page.goto('/');
+  test('should safely render WebSocket message data in notifications', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.evaluate(() => { window.__xss_fired = false; });
 
     let dialogFired = false;

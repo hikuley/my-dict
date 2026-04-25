@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { authenticatePage } from '../fixtures/api-helpers.js';
 
 /**
  * WebSocket Security Penetration Tests (Cases 35-38)
@@ -11,8 +12,8 @@ import { test, expect } from '@playwright/test';
 test.describe('WebSocket Security', () => {
 
   // Case 35: WebSocket origin validation
-  test('should validate WebSocket connection origin', async ({ page }) => {
-    await page.goto('/');
+  test('should validate WebSocket connection origin', async ({ page, request }) => {
+    await authenticatePage(page, request);
 
     const result = await page.evaluate(() => {
       return new Promise((resolve) => {
@@ -45,8 +46,8 @@ test.describe('WebSocket Security', () => {
   });
 
   // Case 36: Malformed WebSocket messages
-  test('should handle malformed JSON messages without crashing', async ({ page }) => {
-    await page.goto('/');
+  test('should handle malformed JSON messages without crashing', async ({ page, request }) => {
+    await authenticatePage(page, request);
 
     const result = await page.evaluate(() => {
       return new Promise((resolve) => {
@@ -83,8 +84,8 @@ test.describe('WebSocket Security', () => {
     expect(title).toContain('My Dictionary');
   });
 
-  test('should handle binary WebSocket data without crashing', async ({ page }) => {
-    await page.goto('/');
+  test('should handle binary WebSocket data without crashing', async ({ page, request }) => {
+    await authenticatePage(page, request);
 
     const result = await page.evaluate(() => {
       return new Promise((resolve) => {
@@ -115,8 +116,8 @@ test.describe('WebSocket Security', () => {
   });
 
   // Case 37: WebSocket message replay
-  test('should handle replayed word-ready messages gracefully', async ({ page }) => {
-    await page.goto('/');
+  test('should handle replayed word-ready messages gracefully', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.waitForSelector('table');
 
     const result = await page.evaluate(() => {
@@ -153,8 +154,8 @@ test.describe('WebSocket Security', () => {
   });
 
   // Case 38: WebSocket connection flood
-  test('should handle rapid WebSocket connections without freezing', async ({ page }) => {
-    await page.goto('/');
+  test('should handle rapid WebSocket connections without freezing', async ({ page, request }) => {
+    await authenticatePage(page, request);
 
     const result = await page.evaluate(() => {
       return new Promise((resolve) => {

@@ -101,7 +101,10 @@ const WordDetailModal = ({ slug, title, onClose }) => {
     setWord(null);
     setActiveKey(null);
 
-    fetch('/api/words/' + encodeURIComponent(slug))
+    const token = localStorage.getItem('token');
+    fetch('/api/words/' + encodeURIComponent(slug), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((res) => res.json())
       .then((data) => {
         setWord(data);

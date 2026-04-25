@@ -2,6 +2,10 @@ package com.mydict.integration
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.mydict.dto.*
+import com.mydict.entity.AuthType
+import com.mydict.entity.User
+import com.mydict.repository.UserRepository
+import com.mydict.security.JwtTokenProvider
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import org.springframework.beans.factory.annotation.Autowired
@@ -17,6 +21,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WordApiIntegrationTest : BaseIntegrationTest() {
 
     @Autowired
@@ -24,6 +29,35 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var jwtTokenProvider: JwtTokenProvider
+
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
+    private lateinit var authToken: String
+
+    @BeforeAll
+    fun setupAuth() {
+        val user = userRepository.save(
+            User(
+                fullName = "Test User",
+                email = "wordtest@integration.com",
+                passwordHash = "hashed",
+                authType = AuthType.manual,
+                isVerified = true,
+            )
+        )
+        authToken = jwtTokenProvider.generateToken(user.id!!, user.email)
+    }
+
+    @AfterAll
+    fun cleanupAuth() {
+        userRepository.deleteAll()
+    }
+
+    private fun authHeader() = "Bearer $authToken"
 
     @Test
     @Order(1)
@@ -51,6 +85,7 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
 
         mockMvc.perform(
             post("/api/words")
+                .header("Authorization", authHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         )
@@ -70,6 +105,7 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
 
         mockMvc.perform(
             post("/api/words")
+                .header("Authorization", authHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         )
@@ -80,7 +116,8 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     @Test
     @Order(4)
     fun `get word by slug returns the created word`() {
-        mockMvc.perform(get("/api/words/integration-test"))
+        mockMvc.perform(get("/api/words/integration-test")
+                .header("Authorization", authHeader()))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.slug").value("integration-test"))
             .andExpect(jsonPath("$.title").value("Integration Test"))
@@ -90,7 +127,8 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     @Test
     @Order(5)
     fun `get nonexistent word returns 404`() {
-        mockMvc.perform(get("/api/words/does-not-exist"))
+        mockMvc.perform(get("/api/words/does-not-exist")
+                .header("Authorization", authHeader()))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.error").value("Word not found"))
     }
@@ -106,11 +144,13 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
         )
         mockMvc.perform(
             post("/api/words")
+                .header("Authorization", authHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isCreated)
 
-        mockMvc.perform(get("/api/words?page=1&limit=10"))
+        mockMvc.perform(get("/api/words?page=1&limit=10")
+                .header("Authorization", authHeader()))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.words").isArray)
             .andExpect(jsonPath("$.page").value(1))
@@ -121,7 +161,8 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     @Test
     @Order(7)
     fun `search words returns matching results`() {
-        mockMvc.perform(get("/api/words/search?q=test"))
+        mockMvc.perform(get("/api/words/search?q=test")
+                .header("Authorization", authHeader()))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.words").isArray)
             .andExpect(jsonPath("$.words.length()").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
@@ -130,7 +171,8 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     @Test
     @Order(8)
     fun `search rejects short query`() {
-        mockMvc.perform(get("/api/words/search?q=a"))
+        mockMvc.perform(get("/api/words/search?q=a")
+                .header("Authorization", authHeader()))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Query must be at least 2 characters"))
     }
@@ -140,6 +182,7 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     fun `generate word rejects blank input`() {
         mockMvc.perform(
             post("/api/words/generate")
+                .header("Authorization", authHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"word": ""}""")
         )
@@ -152,6 +195,7 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     fun `generate word rejects duplicate`() {
         mockMvc.perform(
             post("/api/words/generate")
+                .header("Authorization", authHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"word": "integration test"}""")
         )
@@ -163,18 +207,20 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     fun `generate word accepts new word`() {
         mockMvc.perform(
             post("/api/words/generate")
+                .header("Authorization", authHeader())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"word": "ephemeral"}""")
+                .content("""{"word": "xyzzy-test-gen"}""")
         )
             .andExpect(status().isAccepted)
             .andExpect(jsonPath("$.message").value("Word queued for processing"))
-            .andExpect(jsonPath("$.slug").value("ephemeral"))
+            .andExpect(jsonPath("$.slug").value("xyzzy-test-gen"))
     }
 
     @Test
     @Order(12)
     fun `delete word returns success`() {
-        mockMvc.perform(delete("/api/words/unit-test"))
+        mockMvc.perform(delete("/api/words/unit-test")
+                .header("Authorization", authHeader()))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.message").value("Word deleted"))
     }
@@ -182,7 +228,8 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     @Test
     @Order(13)
     fun `delete nonexistent word returns 404`() {
-        mockMvc.perform(delete("/api/words/unit-test"))
+        mockMvc.perform(delete("/api/words/unit-test")
+                .header("Authorization", authHeader()))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.error").value("Word not found"))
     }
@@ -192,6 +239,7 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     fun `create word rejects missing required fields`() {
         mockMvc.perform(
             post("/api/words")
+                .header("Authorization", authHeader())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"title": "No Slug"}""")
         )
@@ -202,13 +250,15 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     @Test
     @Order(100)
     fun `cleanup - delete remaining test word`() {
-        mockMvc.perform(delete("/api/words/integration-test"))
+        mockMvc.perform(delete("/api/words/integration-test")
+                .header("Authorization", authHeader()))
             .andExpect(status().isOk)
     }
 
     @Test
     @Order(101)
     fun `cleanup - delete ephemeral test word`() {
-        mockMvc.perform(delete("/api/words/ephemeral"))
+        mockMvc.perform(delete("/api/words/xyzzy-test-gen")
+                .header("Authorization", authHeader()))
     }
 }

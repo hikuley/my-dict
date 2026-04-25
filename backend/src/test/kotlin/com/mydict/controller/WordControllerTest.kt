@@ -2,6 +2,9 @@ package com.mydict.controller
 
 import com.mydict.dto.*
 import com.mydict.kafka.KafkaProducerService
+import com.mydict.repository.UserRepository
+import com.mydict.security.JwtAuthenticationFilter
+import com.mydict.security.JwtTokenProvider
 import com.mydict.service.WordService
 import com.mydict.websocket.WordWebSocketHandler
 import org.junit.jupiter.api.Nested
@@ -13,19 +16,30 @@ import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.context.annotation.Import
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.MediaType
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 
 @WebMvcTest(WordController::class)
+@AutoConfigureMockMvc(addFilters = false)
 class WordControllerTest {
 
     @Autowired
     private lateinit var mockMvc: MockMvc
+
+    @MockBean
+    private lateinit var jwtTokenProvider: JwtTokenProvider
+
+    @MockBean
+    private lateinit var userRepository: UserRepository
 
     @MockBean
     private lateinit var wordService: WordService
@@ -46,7 +60,7 @@ class WordControllerTest {
             )
             whenever(wordService.listWords(1, 20)).thenReturn(response)
 
-            mockMvc.perform(get("/api/words"))
+            mockMvc.perform(get("/api/words").with(user("test")))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.words[0].slug").value("hello"))
                 .andExpect(jsonPath("$.total").value(1))
@@ -59,7 +73,7 @@ class WordControllerTest {
             )
             whenever(wordService.listWords(2, 10)).thenReturn(response)
 
-            mockMvc.perform(get("/api/words?page=2&limit=10"))
+            mockMvc.perform(get("/api/words?page=2&limit=10").with(user("test")))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.page").value(2))
         }
@@ -74,21 +88,21 @@ class WordControllerTest {
             ))
             whenever(wordService.searchWords("hello")).thenReturn(response)
 
-            mockMvc.perform(get("/api/words/search?q=hello"))
+            mockMvc.perform(get("/api/words/search?q=hello").with(user("test")))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.words[0].slug").value("hello"))
         }
 
         @Test
         fun `rejects short query`() {
-            mockMvc.perform(get("/api/words/search?q=a"))
+            mockMvc.perform(get("/api/words/search?q=a").with(user("test")))
                 .andExpect(status().isBadRequest)
                 .andExpect(jsonPath("$.error").value("Query must be at least 2 characters"))
         }
 
         @Test
         fun `rejects missing query`() {
-            mockMvc.perform(get("/api/words/search"))
+            mockMvc.perform(get("/api/words/search").with(user("test")))
                 .andExpect(status().isBadRequest)
         }
     }
@@ -100,7 +114,7 @@ class WordControllerTest {
             val response = WordDetailResponse("hello", "Hello", "/həˈloʊ/", "A greeting", "[]")
             whenever(wordService.getWordBySlug("hello")).thenReturn(response)
 
-            mockMvc.perform(get("/api/words/hello"))
+            mockMvc.perform(get("/api/words/hello").with(user("test")))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.slug").value("hello"))
                 .andExpect(jsonPath("$.title").value("Hello"))
@@ -110,7 +124,7 @@ class WordControllerTest {
         fun `returns 404 for missing word`() {
             whenever(wordService.getWordBySlug("nonexistent")).thenReturn(null)
 
-            mockMvc.perform(get("/api/words/nonexistent"))
+            mockMvc.perform(get("/api/words/nonexistent").with(user("test")))
                 .andExpect(status().isNotFound)
                 .andExpect(jsonPath("$.error").value("Word not found"))
         }
@@ -124,6 +138,7 @@ class WordControllerTest {
 
             mockMvc.perform(
                 post("/api/words/generate")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"word": "hello"}""")
             )
@@ -139,6 +154,7 @@ class WordControllerTest {
         fun `rejects blank word`() {
             mockMvc.perform(
                 post("/api/words/generate")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"word": "  "}""")
             )
@@ -150,6 +166,7 @@ class WordControllerTest {
         fun `rejects null word`() {
             mockMvc.perform(
                 post("/api/words/generate")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{}""")
             )
@@ -163,6 +180,7 @@ class WordControllerTest {
 
             mockMvc.perform(
                 post("/api/words/generate")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"word": "hello"}""")
             )
@@ -178,6 +196,7 @@ class WordControllerTest {
 
             mockMvc.perform(
                 post("/api/words/generate")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"word": "$longWord"}""")
             )
@@ -196,6 +215,7 @@ class WordControllerTest {
 
             mockMvc.perform(
                 post("/api/words")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"slug": "hello", "title": "Hello"}""")
             )
@@ -207,6 +227,7 @@ class WordControllerTest {
         fun `rejects missing slug`() {
             mockMvc.perform(
                 post("/api/words")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"title": "Hello"}""")
             )
@@ -218,6 +239,7 @@ class WordControllerTest {
         fun `rejects missing title`() {
             mockMvc.perform(
                 post("/api/words")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"slug": "hello"}""")
             )
@@ -231,6 +253,7 @@ class WordControllerTest {
 
             mockMvc.perform(
                 post("/api/words")
+                    .with(user("test"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"slug": "hello", "title": "Hello"}""")
             )
@@ -245,7 +268,7 @@ class WordControllerTest {
         fun `deletes word successfully`() {
             whenever(wordService.deleteWord("hello")).thenReturn(true)
 
-            mockMvc.perform(delete("/api/words/hello"))
+            mockMvc.perform(delete("/api/words/hello").with(user("test")))
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.message").value("Word deleted"))
         }
@@ -254,7 +277,7 @@ class WordControllerTest {
         fun `returns 404 for missing word`() {
             whenever(wordService.deleteWord("nonexistent")).thenReturn(false)
 
-            mockMvc.perform(delete("/api/words/nonexistent"))
+            mockMvc.perform(delete("/api/words/nonexistent").with(user("test")))
                 .andExpect(status().isNotFound)
                 .andExpect(jsonPath("$.error").value("Word not found"))
         }

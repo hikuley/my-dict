@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createWord, safeDelete } from '../fixtures/api-helpers.js';
+import { createWord, safeDelete, authenticatePage } from '../fixtures/api-helpers.js';
 
 const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:3000';
 const DELETE_SLUG = 'e2e-delete-word';
@@ -23,8 +23,8 @@ test.describe('Delete Word', () => {
     await safeDelete(request, DELETE_SLUG);
   });
 
-  test('should delete a word from the list', async ({ page }) => {
-    await page.goto('/');
+  test('should delete a word from the list', async ({ page, request }) => {
+    await authenticatePage(page, request);
     await page.waitForSelector('table tbody tr', { timeout: 10000 });
 
     // Find the row with our test word
