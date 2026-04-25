@@ -102,43 +102,46 @@ jobs:
             /tmp/my-dict-deploy.tar.gz \
             ec2-user@${{ secrets.EC2_PROD_HOST }}:/tmp/my-dict-deploy.tar.gz
 
-          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_PROD_HOST }} "DEPLOY_VERSION=$VERSION bash -s" << 'OUTER_EOF'
-            cd /opt/my-dict
-            tar xzf /tmp/my-dict-deploy.tar.gz
-            rm -f /tmp/my-dict-deploy.tar.gz
-            echo "$DEPLOY_VERSION" > VERSION
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i ~/.ssh/deploy_key ec2-user@${{ secrets.EC2_PROD_HOST }} "DEPLOY_VERSION=$VERSION bash -s" << 'DEPLOY_SCRIPT'
+          set -euo pipefail
+          cd /opt/my-dict
+          tar xzf /tmp/my-dict-deploy.tar.gz
+          rm -f /tmp/my-dict-deploy.tar.gz
+          echo "$DEPLOY_VERSION" > VERSION
 
-            # Fetch secrets from AWS Secrets Manager
-            echo "Fetching secrets from AWS Secrets Manager..."
-            SECRET_JSON=$(aws secretsmanager get-secret-value \
-              --region eu-west-1 \
-              --secret-id my-dict/prod/secrets \
-              --query SecretString \
-              --output text)
+          # Fetch secrets from AWS Secrets Manager
+          echo "Fetching secrets from AWS Secrets Manager..."
+          SECRET_JSON=$(aws secretsmanager get-secret-value \
+            --region eu-west-1 \
+            --secret-id my-dict/prod/secrets \
+            --query SecretString \
+            --output text)
 
-            ANTHROPIC_API_KEY=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['ANTHROPIC_API_KEY'])")
-            GOOGLE_CLIENT_ID=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['GOOGLE_CLIENT_ID'])")
-            MAIL_USERNAME=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['MAIL_USERNAME'])")
-            MAIL_PASSWORD=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['MAIL_PASSWORD'])")
+          ANTHROPIC_API_KEY=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['ANTHROPIC_API_KEY'])")
+          GOOGLE_CLIENT_ID=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['GOOGLE_CLIENT_ID'])")
+          MAIL_USERNAME=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['MAIL_USERNAME'])")
+          MAIL_PASSWORD=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['MAIL_PASSWORD'])")
 
-            cat > /opt/my-dict/.env <<ENVEOF
-ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
-GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=$MAIL_USERNAME
-MAIL_PASSWORD=$MAIL_PASSWORD
-MAIL_SMTP_AUTH=true
-MAIL_SMTP_STARTTLS=true
-AWS_REGION=eu-west-1
-CLOUDWATCH_LOG_GROUP=/my-dict-prod
-ENVEOF
-            chmod 600 /opt/my-dict/.env
+          cat > /opt/my-dict/.env << ENV_END
+          ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+          GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+          MAIL_HOST=smtp.gmail.com
+          MAIL_PORT=587
+          MAIL_USERNAME=$MAIL_USERNAME
+          MAIL_PASSWORD=$MAIL_PASSWORD
+          MAIL_SMTP_AUTH=true
+          MAIL_SMTP_STARTTLS=true
+          AWS_REGION=eu-west-1
+          CLOUDWATCH_LOG_GROUP=/my-dict-prod
+          ENV_END
+          # Remove leading whitespace from .env
+          sed -i 's/^[[:space:]]*//' /opt/my-dict/.env
+          chmod 600 /opt/my-dict/.env
 
-            docker compose -f docker-compose.prod.yml down
-            docker compose -f docker-compose.prod.yml up -d --build --force-recreate
-            echo "Waiting for services..."
-            sleep 15
-            docker compose -f docker-compose.prod.yml ps
-            echo "Deployed version: $DEPLOY_VERSION"
-          OUTER_EOF
+          docker compose -f docker-compose.prod.yml down
+          docker compose -f docker-compose.prod.yml up -d --build --force-recreate
+          echo "Waiting for services..."
+          sleep 15
+          docker compose -f docker-compose.prod.yml ps
+          echo "Deployed version: $DEPLOY_VERSION"
+          DEPLOY_SCRIPT
