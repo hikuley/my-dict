@@ -11,8 +11,12 @@ An AI-powered dictionary app that generates detailed word definitions using Clau
 | Kotlin | 1.9.25 | Language |
 | Spring Boot | 3.4.5 | Web framework |
 | Spring Data JPA | 3.4.5 | ORM / PostgreSQL with JSONB |
+| Spring Security | 3.4.5 | Authentication & authorization |
 | Spring Kafka | 3.4.5 | Async message processing |
+| Spring Mail | 3.4.5 | Email verification |
 | Flyway | 10.10.0 | Database migrations |
+| JJWT | 0.12.6 | JWT token generation & validation |
+| Google API Client | 2.7.0 | Google OAuth token verification |
 | OkHttp | 4.12.0 | Claude API HTTP client |
 | Gradle (Kotlin DSL) | 9.0.0 | Build system |
 | JDK | 17 | Runtime |
@@ -25,6 +29,7 @@ An AI-powered dictionary app that generates detailed word definitions using Clau
 | Ant Design | 5.20+ | Component library |
 | Redux Toolkit | 2.x | State management |
 | Vite | 5 | Build tool / dev server |
+| Google Identity Services | — | Google OAuth sign-in |
 | DOMPurify | 3.x | HTML sanitization (XSS prevention) |
 | Playwright | latest | E2E & security testing |
 
@@ -68,22 +73,41 @@ User Browser
 
 **Request flow:**
 1. nginx serves the React SPA and proxies `/api/*` and `/ws` to the backend
-2. `POST /api/words/generate` publishes a message to Kafka topic `word-generate`
-3. Kafka consumer calls Claude API to generate the word definition
-4. Result is saved to PostgreSQL and broadcast via WebSocket (`word-ready`)
+2. Users authenticate via email/password (with email verification) or Google OAuth; JWT tokens gate API access
+3. `POST /api/words/generate` publishes a message to Kafka topic `word-generate`
+4. Kafka consumer calls Claude API to generate the word definition
+5. Result is saved to PostgreSQL and broadcast via WebSocket (`word-ready`)
 
 ## API Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/words?page=&limit=` | Paginated word list |
-| `GET` | `/api/words/search?q=` | Full-text search (min 2 chars) |
-| `GET` | `/api/words/:slug` | Word detail with sections |
-| `POST` | `/api/words/generate` | Generate word via Claude AI (async, returns 202) |
-| `POST` | `/api/words` | Create word manually |
-| `DELETE` | `/api/words/:slug` | Delete a word |
-| `GET` | `/api/health` | Health check |
-| `WS` | `/ws` | WebSocket (word-processing, word-ready, word-error) |
+### Authentication
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/signup` | Public | Register with email/password (sends verification code) |
+| `POST` | `/api/auth/login` | Public | Login with email/password (returns JWT) |
+| `POST` | `/api/auth/verify` | Public | Verify email with 6-digit code |
+| `POST` | `/api/auth/resend-verification` | Public | Resend verification code |
+| `POST` | `/api/auth/google` | Public | Sign in with Google OAuth ID token |
+| `GET` | `/api/auth/me` | Bearer | Get current user info |
+
+### Dictionary
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/words?page=&limit=` | Bearer | Paginated word list |
+| `GET` | `/api/words/search?q=` | Bearer | Full-text search (min 2 chars) |
+| `GET` | `/api/words/:slug` | Bearer | Word detail with sections |
+| `POST` | `/api/words/generate` | Bearer | Generate word via Claude AI (async, returns 202) |
+| `POST` | `/api/words` | Bearer | Create word manually |
+| `DELETE` | `/api/words/:slug` | Bearer | Delete a word |
+
+### System
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/health` | Public | Health check |
+| `WS` | `/ws` | Public | WebSocket (word-processing, word-ready, word-error) |
 
 ## Project Structure
 
@@ -91,31 +115,39 @@ User Browser
 my-dict/
 ├── backend/                  # Kotlin + Spring Boot API
 │   ├── src/main/kotlin/com/mydict/
-│   │   ├── controller/       # REST endpoints
-│   │   ├── dto/              # Request/response DTOs
-│   │   ├── entity/           # JPA entities
+│   │   ├── config/           # Startup logger
+│   │   ├── controller/       # REST endpoints (Word, Auth)
+│   │   ├── dto/              # Request/response DTOs (Word, Auth)
+│   │   ├── entity/           # JPA entities (Word, User)
 │   │   ├── kafka/            # Producer + consumer
-│   │   ├── repository/       # Spring Data JPA
-│   │   ├── service/          # Business logic + Claude integration
+│   │   ├── repository/       # Spring Data JPA (Word, User)
+│   │   ├── security/         # JWT filter, token provider, SecurityConfig
+│   │   ├── service/          # Business logic, Claude, Auth, Google OAuth, Email
 │   │   ├── util/             # JSON parser for Claude responses
 │   │   └── websocket/        # WebSocket handler + config
 │   ├── src/main/resources/
 │   │   ├── application.yml
-│   │   ├── db/migration/     # Flyway SQL migrations
+│   │   ├── db/migration/     # Flyway SQL migrations (V1–V4)
 │   │   └── prompts/          # Claude prompt template
 │   ├── build.gradle.kts
 │   └── Dockerfile
 ├── frontend/                 # React SPA
 │   ├── src/
-│   │   ├── components/       # WordList, AddWordModal, WordDetailModal
+│   │   ├── components/       # AuthPage, VerifyEmailPage, WordList, AddWordModal, WordDetailModal
 │   │   ├── hooks/            # useWebSocket, useProgressBars
-│   │   ├── store/            # Redux (wordsSlice)
+│   │   ├── store/            # Redux (authSlice, wordsSlice)
 │   │   └── styles/
+│   ├── e2e/
+│   │   ├── e2e/              # Functional E2E tests (auth, words, search, full journey)
+│   │   ├── fixtures/         # API helpers, test payloads
+│   │   └── security/         # Security tests (XSS, CSRF, injection, etc.)
 │   ├── package.json
 │   └── Dockerfile            # Multi-stage: Node build → nginx
 ├── infra/                    # Terraform (AWS)
 │   ├── ec2.tf
 │   ├── cloudwatch.tf
+│   ├── route53.tf
+│   ├── github.tf
 │   └── architecture.mmd
 ├── docker-compose.local.yml      # Local development (json-file logging, named volumes, localhost Kafka)
 ├── docker-compose.dev.yml        # Dev EC2 (json-file logging, EBS volumes)
@@ -154,9 +186,9 @@ The CI pipeline (`test.yml`) runs 5 parallel jobs on every push:
 |---|---|
 | **BE: Unit Tests** | `./gradlew unitTest` — fast, no external deps |
 | **BE: Integration Tests** | `./gradlew integrationTest` — PostgreSQL + Kafka service containers |
-| **FE: Playwright Security Tests** | XSS, CSRF, injection, clickjacking, security headers |
+| **FE: Playwright Security Tests** | XSS, CSRF, injection, clickjacking, security headers, auth |
 | **BE: Performance Tests** | JMeter load test (100 threads, 120s) with error rate & P95 thresholds |
-| **FE: E2E Tests** | Full user journey — add, search, detail, delete |
+| **FE: E2E Tests** | Full user journey — auth, add, search, detail, delete |
 
 All jobs that need backend use `MockClaudeService` (Spring profile `mock-claude`) to avoid real API calls.
 
