@@ -3,6 +3,7 @@
 resource "aws_secretsmanager_secret" "app" {
   for_each = local.environments
   name     = "${var.app_name}/${each.key}/secrets"
+  recovery_window_in_days = 0
 
   tags = {
     Name        = "${var.app_name}-${each.key}-secrets"
