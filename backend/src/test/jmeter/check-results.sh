@@ -22,7 +22,7 @@ ERRORS=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $8}' | grep -ci 'false' 
 ERROR_RATE=$(awk "BEGIN {printf \"%.2f\", ($ERRORS / $TOTAL) * 100}")
 
 # Calculate p95 from the "elapsed" column (column 2, 1-indexed)
-P95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $2}' | sort -n | awk -v n="$TOTAL" 'NR==int(n*0.95+0.5) {print; exit}')
+P95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $2}' | sort -n | awk -v n="$TOTAL" 'NR==int(n*0.95+0.5) {print}' | head -1)
 
 # Calculate additional stats
 AVG=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{sum += $2; count++} END {printf "%.0f", sum/count}')
@@ -51,6 +51,7 @@ echo "  -------------------------------------------------------------------"
 # Get unique labels
 LABELS=$(tail -n +2 "$RESULTS_FILE" | awk -F',' '{print $3}' | sort -u)
 
+ENDPOINT_LINES=""
 while IFS= read -r label; do
   [[ -z "$label" ]] && continue
   # Extract stats for this label
@@ -61,11 +62,13 @@ while IFS= read -r label; do
   }')
 
   # P95 via sort
-  EP95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' -v lbl="$label" '$3==lbl {print $2}' | sort -n | awk -v n="$cnt" 'NR==int(n*0.95+0.5) {print; exit}')
+  EP95=$(tail -n +2 "$RESULTS_FILE" | awk -F',' -v lbl="$label" '$3==lbl {print $2}' | sort -n | awk -v n="$cnt" 'NR==int(n*0.95+0.5) {print}' | head -1)
   ERR_PCT=$(awk "BEGIN {printf \"%.1f\", ($errcnt / $cnt) * 100}")
 
-  printf "  %-35s %8d %8s %8s %7s%%\n" "$label" "$cnt" "$avg_val" "${EP95:-0}" "$ERR_PCT"
-done <<< "$LABELS" | sort
+  ENDPOINT_LINES+=$(printf "  %-35s %8d %8s %8s %7s%%\n" "$label" "$cnt" "$avg_val" "${EP95:-0}" "$ERR_PCT")
+  ENDPOINT_LINES+=$'\n'
+done <<< "$LABELS"
+echo "$ENDPOINT_LINES" | sort
 
 echo ""
 
