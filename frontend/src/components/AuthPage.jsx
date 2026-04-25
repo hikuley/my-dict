@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Form, Input, Button, Typography, Divider, Alert, Space } from 'antd';
-import { MailOutlined, LockOutlined, UserOutlined, GoogleOutlined } from '@ant-design/icons';
+import { MailOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { signUp, login, googleAuth, clearAuthError, selectAuthStatus, selectAuthError } from '../store/authSlice';
 
 const { Title, Text, Link } = Typography;
@@ -12,6 +12,7 @@ const AuthPage = () => {
   const error = useSelector(selectAuthError);
   const [mode, setMode] = useState('login'); // 'login' | 'signup'
   const [form] = Form.useForm();
+  const googleBtnRef = useRef(null);
 
   const loading = status === 'loading';
 
@@ -24,16 +25,21 @@ const AuthPage = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    if (!window.google) return;
+  useEffect(() => {
+    if (!window.google || !googleBtnRef.current) return;
     window.google.accounts.id.initialize({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
       callback: (response) => {
         dispatch(googleAuth({ idToken: response.credential }));
       },
     });
-    window.google.accounts.id.prompt();
-  };
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'outline',
+      size: 'large',
+      width: 336,
+      text: 'continue_with',
+    });
+  }, [dispatch]);
 
   const switchMode = () => {
     dispatch(clearAuthError());
@@ -137,15 +143,10 @@ const AuthPage = () => {
 
         <Divider plain>or</Divider>
 
-        <Button
-          icon={<GoogleOutlined />}
-          block
-          size="large"
-          onClick={handleGoogleLogin}
-          style={{ marginBottom: 16 }}
-        >
-          Continue with Google
-        </Button>
+        <div
+          ref={googleBtnRef}
+          style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}
+        />
 
         <div style={{ textAlign: 'center' }}>
           <Text type="secondary">
