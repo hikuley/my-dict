@@ -113,7 +113,7 @@ resource "aws_ebs_volume" "pgdata" {
   }
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 

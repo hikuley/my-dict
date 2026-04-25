@@ -45,3 +45,20 @@ variable "app_name" {
   type        = string
   default     = "my-dict"
 }
+
+variable "github_owner" {
+  description = "GitHub username or organization"
+  type        = string
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
+  default     = "my-dict"
+}
+
+variable "github_token" {
+  description = "GitHub personal access token with repo scope"
+  type        = string
+  sensitive   = true
+}
