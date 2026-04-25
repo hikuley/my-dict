@@ -64,7 +64,7 @@ services:
         awslogs-group: ${CLOUDWATCH_LOG_GROUP}
         awslogs-stream: api
     environment:
-      DATABASE_URL: jdbc:postgresql://db:5432/mydict
+      DATABASE_URL: jdbc:postgresql://db:5432/mydict?stringtype=unspecified
       DB_USER: mydict
       DB_PASSWORD: mydict
       PORT: "3001"
