@@ -602,7 +602,7 @@ jobs:
         run: |
           curl -sf http://localhost:3000 > /dev/null || (echo "ERROR: Frontend not responding" && exit 1)
           echo "Frontend is serving"
-          curl -sf http://localhost:3000/api/words?page=1\&limit=1 > /dev/null || (echo "ERROR: API proxy not working" && exit 1)
+          curl -sf http://localhost:3000/api/health > /dev/null || (echo "ERROR: API proxy not working" && exit 1)
           echo "API proxy is working"
 
       - name: Run Playwright E2E tests
