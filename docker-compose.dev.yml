@@ -2,6 +2,12 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP}
+        awslogs-stream: db
     environment:
       POSTGRES_USER: mydict
       POSTGRES_PASSWORD: mydict
@@ -19,6 +25,12 @@ services:
   kafka:
     image: apache/kafka:3.9.0
     restart: unless-stopped
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP}
+        awslogs-stream: kafka
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -45,6 +57,12 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP}
+        awslogs-stream: api
     env_file: .env
     environment:
       DATABASE_URL: jdbc:postgresql://db:5432/mydict?stringtype=unspecified
@@ -64,6 +82,12 @@ services:
     build:
       context: ./frontend
     restart: unless-stopped
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION}
+        awslogs-group: ${CLOUDWATCH_LOG_GROUP}
+        awslogs-stream: web
     ports:
       - "3000:80"
     volumes:
