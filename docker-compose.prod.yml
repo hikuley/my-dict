@@ -69,6 +69,7 @@ services:
       DB_PASSWORD: mydict
       PORT: "3001"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       KAFKA_BROKER: kafka:9092
     ports:
       - "3001:3001"

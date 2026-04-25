@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-# --- Install Docker ---
+# --- Install Docker and AWS CLI ---
 dnf update -y
-dnf install -y docker git
+dnf install -y docker git aws-cli
 systemctl enable docker
 systemctl start docker
 usermod -aG docker ec2-user
@@ -67,9 +67,21 @@ fi
 mkdir -p /opt/my-dict
 chown ec2-user:ec2-user /opt/my-dict
 
+# --- Fetch secrets from AWS Secrets Manager ---
+echo "Fetching secrets from Secrets Manager: ${secret_name}"
+SECRET_JSON=$(aws secretsmanager get-secret-value \
+  --region "${aws_region}" \
+  --secret-id "${secret_name}" \
+  --query SecretString \
+  --output text)
+
+ANTHROPIC_API_KEY=$(echo "$${SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['ANTHROPIC_API_KEY'])")
+GOOGLE_CLIENT_ID=$(echo "$${SECRET_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['GOOGLE_CLIENT_ID'])")
+
 # --- Write environment file ---
-cat > /opt/my-dict/.env <<'ENVEOF'
-ANTHROPIC_API_KEY=${anthropic_api_key}
+cat > /opt/my-dict/.env <<ENVEOF
+ANTHROPIC_API_KEY=$${ANTHROPIC_API_KEY}
+GOOGLE_CLIENT_ID=$${GOOGLE_CLIENT_ID}
 AWS_REGION=${aws_region}
 CLOUDWATCH_LOG_GROUP=/${app_name}-${environment}
 ENVEOF

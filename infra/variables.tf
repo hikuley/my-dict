@@ -16,6 +16,12 @@ variable "anthropic_api_key" {
   sensitive   = true
 }
 
+variable "google_client_id" {
+  description = "Google OAuth Client ID for Sign in with Google"
+  type        = string
+  sensitive   = true
+}
+
 variable "ssh_allowed_cidr" {
   description = "CIDR block allowed to SSH (default: open, restrict to your IP for security)"
   type        = string

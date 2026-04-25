@@ -134,10 +134,10 @@ resource "aws_instance" "app" {
   }
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    anthropic_api_key = var.anthropic_api_key
-    aws_region        = var.aws_region
-    environment       = each.key
-    app_name          = var.app_name
+    aws_region  = var.aws_region
+    environment = each.key
+    app_name    = var.app_name
+    secret_name = aws_secretsmanager_secret.app[each.key].name
   })
 
   tags = {

@@ -37,6 +37,22 @@ resource "aws_iam_role_policy" "cloudwatch_logs" {
   })
 }
 
+resource "aws_iam_role_policy" "secrets_read" {
+  name = "${var.app_name}-secrets-read"
+  role = aws_iam_role.app.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue"
+      ]
+      Resource = [for s in aws_secretsmanager_secret.app : s.arn]
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "app" {
   name = "${var.app_name}-instance-profile"
   role = aws_iam_role.app.name
