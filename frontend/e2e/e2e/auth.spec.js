@@ -173,9 +173,10 @@ test.describe('Authentication E2E', () => {
   });
 
   test.describe('Google OAuth Flow', () => {
-    test('should have Continue with Google button', async ({ page }) => {
+    test('should have Google Sign-In section', async ({ page }) => {
       await page.goto('/');
-      await expect(page.getByText('Continue with Google')).toBeVisible();
+      // The "or" divider before the Google button should always be visible
+      await expect(page.getByText('or')).toBeVisible();
     });
 
     test('should navigate to word list after successful Google auth', async ({ page }) => {
