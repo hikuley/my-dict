@@ -19,6 +19,7 @@ class AuthService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val emailService: EmailService,
     private val googleOAuthService: GoogleOAuthService,
+    private val apiUsageService: ApiUsageService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val secureRandom = SecureRandom()
@@ -55,6 +56,7 @@ class AuthService(
         )
 
         val savedUser = userRepository.save(user)
+        apiUsageService.initializeUsage(savedUser.id!!)
         log.info("[auth] User signed up: ${savedUser.email}")
 
         try {
@@ -163,6 +165,7 @@ class AuthService(
                 isVerified = true, // Google users are pre-verified
             )
             user = userRepository.save(user)
+            apiUsageService.initializeUsage(user.id!!)
             log.info("[auth] Google user registered: ${user.email}")
         }
 
@@ -175,6 +178,124 @@ class AuthService(
         return toUserResponse(user)
     }
 
+    fun getProfile(userId: java.util.UUID): ProfileResponse {
+        val user = userRepository.findById(userId).orElseThrow { AuthException("User not found") }
+        val usage = apiUsageService.getUsage(userId)
+        return ProfileResponse(
+            id = user.id!!,
+            name = user.fullName,
+            surname = user.surname,
+            email = user.email,
+            authType = user.authType.name,
+            isVerified = user.isVerified,
+            usageCount = usage.usageCount,
+            usageLimit = usage.usageLimit,
+            periodStart = usage.periodStart,
+        )
+    }
+
+    @Transactional
+    fun updateProfile(userId: java.util.UUID, request: UpdateProfileRequest): ProfileResponse {
+        val name = request.name?.trim() ?: throw AuthException("Name is required")
+        if (name.isBlank()) throw AuthException("Name is required")
+
+        val user = userRepository.findById(userId).orElseThrow { AuthException("User not found") }
+        user.fullName = name
+        user.surname = request.surname?.trim()
+        userRepository.save(user)
+
+        log.info("[auth] Profile updated for user: ${user.email}")
+        return getProfile(userId)
+    }
+
+    @Transactional
+    fun updatePassword(userId: java.util.UUID, request: UpdatePasswordRequest) {
+        val currentPassword = request.currentPassword ?: throw AuthException("Current password is required")
+        val newPassword = request.newPassword ?: throw AuthException("New password is required")
+
+        if (newPassword.length < MIN_PASSWORD_LENGTH) {
+            throw AuthException("New password must be at least $MIN_PASSWORD_LENGTH characters")
+        }
+
+        val user = userRepository.findById(userId).orElseThrow { AuthException("User not found") }
+
+        if (user.authType != AuthType.manual) {
+            throw AuthException("Password change is not available for Google accounts")
+        }
+
+        if (!passwordEncoder.matches(currentPassword, user.passwordHash)) {
+            throw AuthException("Current password is incorrect")
+        }
+
+        user.passwordHash = passwordEncoder.encode(newPassword)
+        userRepository.save(user)
+        log.info("[auth] Password updated for user: ${user.email}")
+    }
+
+    @Transactional
+    fun initiateEmailChange(userId: java.util.UUID, request: UpdateEmailRequest) {
+        val newEmail = request.newEmail?.trim()?.lowercase() ?: throw AuthException("New email is required")
+
+        if (!EMAIL_REGEX.matches(newEmail)) throw AuthException("Invalid email format")
+
+        val user = userRepository.findById(userId).orElseThrow { AuthException("User not found") }
+
+        if (user.email == newEmail) {
+            throw AuthException("New email is the same as current email")
+        }
+
+        if (userRepository.existsByEmail(newEmail)) {
+            throw AuthException("An account with this email already exists")
+        }
+
+        val code = generateVerificationCode()
+        user.pendingEmail = newEmail
+        user.emailVerificationCode = code
+        user.emailVerificationExpiry = OffsetDateTime.now().plusMinutes(VERIFICATION_CODE_EXPIRY_MINUTES)
+        userRepository.save(user)
+
+        try {
+            emailService.sendVerificationCode(newEmail, code)
+        } catch (e: Exception) {
+            log.warn("[auth] Failed to send email change verification to $newEmail: ${e.message}")
+        }
+
+        log.info("[auth] Email change initiated for user: ${user.email} -> $newEmail")
+    }
+
+    @Transactional
+    fun verifyEmailChange(userId: java.util.UUID, request: VerifyEmailChangeRequest): ProfileResponse {
+        val code = request.code?.trim() ?: throw AuthException("Verification code is required")
+
+        val user = userRepository.findById(userId).orElseThrow { AuthException("User not found") }
+
+        if (user.pendingEmail == null) {
+            throw AuthException("No pending email change")
+        }
+
+        if (user.emailVerificationCode != code) {
+            throw AuthException("Invalid verification code")
+        }
+
+        if (user.emailVerificationExpiry != null && OffsetDateTime.now().isAfter(user.emailVerificationExpiry)) {
+            throw AuthException("Verification code has expired")
+        }
+
+        // Check that nobody has taken this email in the meantime
+        if (userRepository.existsByEmail(user.pendingEmail!!)) {
+            throw AuthException("An account with this email already exists")
+        }
+
+        user.email = user.pendingEmail!!
+        user.pendingEmail = null
+        user.emailVerificationCode = null
+        user.emailVerificationExpiry = null
+        userRepository.save(user)
+
+        log.info("[auth] Email changed for user: ${user.id} -> ${user.email}")
+        return getProfile(userId)
+    }
+
     fun generateVerificationCode(): String {
         return String.format("%06d", secureRandom.nextInt(1_000_000))
     }
@@ -183,6 +304,7 @@ class AuthService(
         return UserResponse(
             id = user.id!!,
             name = user.fullName,
+            surname = user.surname,
             email = user.email,
             authType = user.authType.name,
             isVerified = user.isVerified,

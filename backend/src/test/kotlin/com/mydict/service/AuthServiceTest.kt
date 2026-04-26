@@ -34,6 +34,9 @@ class AuthServiceTest {
     @Mock
     private lateinit var googleOAuthService: GoogleOAuthService
 
+    @Mock
+    private lateinit var apiUsageService: ApiUsageService
+
     @Captor
     private lateinit var userCaptor: ArgumentCaptor<User>
 
@@ -44,7 +47,7 @@ class AuthServiceTest {
     fun setUp() {
         authService = AuthService(
             userRepository, passwordEncoder, jwtTokenProvider,
-            emailService, googleOAuthService,
+            emailService, googleOAuthService, apiUsageService,
         )
     }
 
@@ -467,6 +470,337 @@ class AuthServiceTest {
         fun `generates different codes`() {
             val codes = (1..10).map { authService.generateVerificationCode() }.toSet()
             assertTrue(codes.size > 1, "Should generate different codes")
+        }
+    }
+
+    @Nested
+    inner class SignUpUsageInitTests {
+        @Test
+        fun `sign-up initializes API usage for new user`() {
+            whenever(userRepository.existsByEmail("test@example.com")).thenReturn(false)
+            whenever(userRepository.save(any<User>())).thenAnswer {
+                val user = it.arguments[0] as User
+                user.id = UUID.randomUUID()
+                user
+            }
+            whenever(jwtTokenProvider.generateToken(any<UUID>(), any<String>())).thenReturn("token")
+
+            authService.signUp(SignUpRequest("User", "test@example.com", "password123"))
+
+            verify(apiUsageService).initializeUsage(any<UUID>())
+        }
+    }
+
+    @Nested
+    inner class GoogleAuthUsageInitTests {
+        @Test
+        fun `Google auth initializes API usage for new user`() {
+            val googleInfo = GoogleUserInfo("google-123", "google@test.com", "Google User")
+            whenever(googleOAuthService.verifyIdToken("valid-token")).thenReturn(googleInfo)
+            whenever(userRepository.findByGoogleId("google-123")).thenReturn(null)
+            whenever(userRepository.findByEmail("google@test.com")).thenReturn(null)
+            whenever(userRepository.save(any<User>())).thenAnswer {
+                val user = it.arguments[0] as User
+                user.id = UUID.randomUUID()
+                user
+            }
+            whenever(jwtTokenProvider.generateToken(any<UUID>(), any<String>())).thenReturn("token")
+
+            authService.googleAuth(GoogleAuthRequest("valid-token"))
+
+            verify(apiUsageService).initializeUsage(any<UUID>())
+        }
+
+        @Test
+        fun `Google auth does not initialize usage for existing user`() {
+            val existingUser = User(
+                id = UUID.randomUUID(),
+                fullName = "Google User",
+                email = "google@test.com",
+                authType = AuthType.google,
+                googleId = "google-123",
+                isVerified = true,
+            )
+            whenever(googleOAuthService.verifyIdToken("valid-token")).thenReturn(
+                GoogleUserInfo("google-123", "google@test.com", "Google User")
+            )
+            whenever(userRepository.findByGoogleId("google-123")).thenReturn(existingUser)
+            whenever(jwtTokenProvider.generateToken(existingUser.id!!, "google@test.com")).thenReturn("token")
+
+            authService.googleAuth(GoogleAuthRequest("valid-token"))
+
+            verify(apiUsageService, never()).initializeUsage(any())
+        }
+    }
+
+    @Nested
+    inner class UpdateProfileTests {
+        private val userId = UUID.randomUUID()
+        private val existingUser = User(
+            id = userId,
+            fullName = "Old Name",
+            surname = null,
+            email = "test@example.com",
+            authType = AuthType.manual,
+            isVerified = true,
+        )
+
+        @Test
+        fun `updates name and surname`() {
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(existingUser))
+            whenever(userRepository.save(any<User>())).thenAnswer { it.arguments[0] }
+            whenever(apiUsageService.getUsage(userId)).thenReturn(
+                ApiUsageResponse(5, 50, OffsetDateTime.now())
+            )
+
+            val result = authService.updateProfile(userId, UpdateProfileRequest("New Name", "New Surname"))
+
+            assertEquals("New Name", result.name)
+            assertEquals("New Surname", result.surname)
+            verify(userRepository).save(userCaptor.capture())
+            assertEquals("New Name", userCaptor.value.fullName)
+            assertEquals("New Surname", userCaptor.value.surname)
+        }
+
+        @Test
+        fun `rejects missing name`() {
+            val exception = assertThrows(AuthException::class.java) {
+                authService.updateProfile(userId, UpdateProfileRequest(null, null))
+            }
+            assertEquals("Name is required", exception.message)
+        }
+
+        @Test
+        fun `rejects blank name`() {
+            val exception = assertThrows(AuthException::class.java) {
+                authService.updateProfile(userId, UpdateProfileRequest("  ", null))
+            }
+            assertEquals("Name is required", exception.message)
+        }
+    }
+
+    @Nested
+    inner class UpdatePasswordTests {
+        private val userId = UUID.randomUUID()
+        private val passwordEncoder2 = BCryptPasswordEncoder()
+
+        @Test
+        fun `updates password with correct current password`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "test@example.com",
+                passwordHash = passwordEncoder2.encode("oldPassword123"),
+                authType = AuthType.manual,
+                isVerified = true,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+            whenever(userRepository.save(any<User>())).thenAnswer { it.arguments[0] }
+
+            authService.updatePassword(userId, UpdatePasswordRequest("oldPassword123", "newPassword456"))
+
+            verify(userRepository).save(userCaptor.capture())
+            assertTrue(passwordEncoder2.matches("newPassword456", userCaptor.value.passwordHash))
+        }
+
+        @Test
+        fun `rejects incorrect current password`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "test@example.com",
+                passwordHash = passwordEncoder2.encode("correctPassword"),
+                authType = AuthType.manual,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.updatePassword(userId, UpdatePasswordRequest("wrongPassword", "newPassword456"))
+            }
+            assertEquals("Current password is incorrect", exception.message)
+        }
+
+        @Test
+        fun `rejects weak new password`() {
+            val exception = assertThrows(AuthException::class.java) {
+                authService.updatePassword(userId, UpdatePasswordRequest("currentPassword", "short"))
+            }
+            assertEquals("New password must be at least 8 characters", exception.message)
+        }
+
+        @Test
+        fun `rejects password change for Google users`() {
+            val user = User(
+                id = userId,
+                fullName = "Google User",
+                email = "google@test.com",
+                authType = AuthType.google,
+                googleId = "g-123",
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.updatePassword(userId, UpdatePasswordRequest("password", "newPassword456"))
+            }
+            assertEquals("Password change is not available for Google accounts", exception.message)
+        }
+    }
+
+    @Nested
+    inner class EmailChangeTests {
+        private val userId = UUID.randomUUID()
+
+        @Test
+        fun `initiates email change successfully`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "old@test.com",
+                authType = AuthType.manual,
+                isVerified = true,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+            whenever(userRepository.existsByEmail("new@test.com")).thenReturn(false)
+            whenever(userRepository.save(any<User>())).thenAnswer { it.arguments[0] }
+
+            authService.initiateEmailChange(userId, UpdateEmailRequest("new@test.com"))
+
+            verify(userRepository).save(userCaptor.capture())
+            assertEquals("new@test.com", userCaptor.value.pendingEmail)
+            assertNotNull(userCaptor.value.emailVerificationCode)
+            assertNotNull(userCaptor.value.emailVerificationExpiry)
+            verify(emailService).sendVerificationCode(eq("new@test.com"), any())
+        }
+
+        @Test
+        fun `rejects same email`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "same@test.com",
+                authType = AuthType.manual,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.initiateEmailChange(userId, UpdateEmailRequest("same@test.com"))
+            }
+            assertEquals("New email is the same as current email", exception.message)
+        }
+
+        @Test
+        fun `rejects taken email`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "old@test.com",
+                authType = AuthType.manual,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+            whenever(userRepository.existsByEmail("taken@test.com")).thenReturn(true)
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.initiateEmailChange(userId, UpdateEmailRequest("taken@test.com"))
+            }
+            assertEquals("An account with this email already exists", exception.message)
+        }
+
+        @Test
+        fun `rejects invalid email format`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "old@test.com",
+                authType = AuthType.manual,
+            )
+            // findById won't be called because validation fails first
+            val exception = assertThrows(AuthException::class.java) {
+                authService.initiateEmailChange(userId, UpdateEmailRequest("not-an-email"))
+            }
+            assertEquals("Invalid email format", exception.message)
+        }
+
+        @Test
+        fun `verifies email change with correct code`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "old@test.com",
+                pendingEmail = "new@test.com",
+                emailVerificationCode = "123456",
+                emailVerificationExpiry = OffsetDateTime.now().plusMinutes(10),
+                authType = AuthType.manual,
+                isVerified = true,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+            whenever(userRepository.existsByEmail("new@test.com")).thenReturn(false)
+            whenever(userRepository.save(any<User>())).thenAnswer { it.arguments[0] }
+            whenever(apiUsageService.getUsage(userId)).thenReturn(
+                ApiUsageResponse(5, 50, OffsetDateTime.now())
+            )
+
+            val result = authService.verifyEmailChange(userId, VerifyEmailChangeRequest("123456"))
+
+            assertEquals("new@test.com", result.email)
+            verify(userRepository).save(userCaptor.capture())
+            assertEquals("new@test.com", userCaptor.value.email)
+            assertNull(userCaptor.value.pendingEmail)
+            assertNull(userCaptor.value.emailVerificationCode)
+            assertNull(userCaptor.value.emailVerificationExpiry)
+        }
+
+        @Test
+        fun `rejects wrong verification code`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "old@test.com",
+                pendingEmail = "new@test.com",
+                emailVerificationCode = "123456",
+                emailVerificationExpiry = OffsetDateTime.now().plusMinutes(10),
+                authType = AuthType.manual,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.verifyEmailChange(userId, VerifyEmailChangeRequest("999999"))
+            }
+            assertEquals("Invalid verification code", exception.message)
+        }
+
+        @Test
+        fun `rejects expired verification code`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "old@test.com",
+                pendingEmail = "new@test.com",
+                emailVerificationCode = "123456",
+                emailVerificationExpiry = OffsetDateTime.now().minusMinutes(5),
+                authType = AuthType.manual,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.verifyEmailChange(userId, VerifyEmailChangeRequest("123456"))
+            }
+            assertEquals("Verification code has expired", exception.message)
+        }
+
+        @Test
+        fun `rejects when no pending email change`() {
+            val user = User(
+                id = userId,
+                fullName = "User",
+                email = "test@test.com",
+                authType = AuthType.manual,
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.verifyEmailChange(userId, VerifyEmailChangeRequest("123456"))
+            }
+            assertEquals("No pending email change", exception.message)
         }
     }
 }

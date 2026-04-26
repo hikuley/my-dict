@@ -46,7 +46,7 @@ class AuthControllerTest {
         fun `successful sign-up returns 201`() {
             val response = AuthResponse(
                 token = "jwt-token",
-                user = UserResponse(testUserId, "Test User", "test@example.com", "manual", false),
+                user = UserResponse(testUserId, "Test User", null, "test@example.com", "manual", false),
             )
             whenever(authService.signUp(any())).thenReturn(response)
 
@@ -121,7 +121,7 @@ class AuthControllerTest {
         fun `successful login returns 200`() {
             val response = AuthResponse(
                 token = "login-token",
-                user = UserResponse(testUserId, "Test User", "test@example.com", "manual", true),
+                user = UserResponse(testUserId, "Test User", null, "test@example.com", "manual", true),
             )
             whenever(authService.login(any())).thenReturn(response)
 
@@ -213,7 +213,7 @@ class AuthControllerTest {
         fun `successful Google auth returns 200`() {
             val response = AuthResponse(
                 token = "google-token",
-                user = UserResponse(testUserId, "Google User", "google@test.com", "google", true),
+                user = UserResponse(testUserId, "Google User", null, "google@test.com", "google", true),
             )
             whenever(authService.googleAuth(any())).thenReturn(response)
 

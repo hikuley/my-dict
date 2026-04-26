@@ -266,4 +266,33 @@ test.describe('Authentication E2E', () => {
       expect(token).toBeNull();
     });
   });
+
+  test.describe('Profile Button', () => {
+    test('should show profile button when logged in', async ({ page }) => {
+      await page.goto('/');
+
+      await page.evaluate(() => {
+        localStorage.setItem('token', 'test-token');
+        localStorage.setItem('user', JSON.stringify({
+          id: '00000000-0000-0000-0000-000000000006',
+          name: 'Profile Test User',
+          email: 'profile@test.com',
+          authType: 'manual',
+          isVerified: true,
+        }));
+      });
+
+      await page.route('**/api/words?*', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ words: [], page: 1, limit: 20, total: 0, totalPages: 0 }),
+        });
+      });
+
+      await page.reload();
+      await expect(page.getByText('My Dictionary')).toBeVisible();
+      await expect(page.locator('button[title="Profile"]')).toBeVisible();
+    });
+  });
 });

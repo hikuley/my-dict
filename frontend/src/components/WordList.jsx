@@ -9,6 +9,7 @@ import {
   LeftOutlined,
   RightOutlined,
   LogoutOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import {
   fetchWords,
@@ -33,7 +34,7 @@ import WordDetailModal from './WordDetailModal';
 
 const { Text } = Typography;
 
-const WordList = () => {
+const WordList = ({ onOpenProfile }) => {
   const dispatch = useDispatch();
   const words = useSelector(selectAllWords);
   const searchResults = useSelector(selectSearchResults);
@@ -278,6 +279,12 @@ const WordList = () => {
         <div style={{ fontSize: '18px', fontWeight: 600 }}>📚 My Dictionary</div>
         <Space>
           {user && <Text type="secondary">{user.name}</Text>}
+          <Button
+            type="text"
+            icon={<UserOutlined />}
+            onClick={onOpenProfile}
+            title="Profile"
+          />
           <Button
             type="text"
             icon={<LogoutOutlined />}

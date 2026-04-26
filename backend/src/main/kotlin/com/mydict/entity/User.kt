@@ -19,6 +19,9 @@ class User(
     @Column(name = "full_name", nullable = false, length = 255)
     var fullName: String = "",
 
+    @Column(name = "surname", length = 255)
+    var surname: String? = null,
+
     @Column(unique = true, nullable = false, length = 255)
     var email: String = "",
 
@@ -40,6 +43,15 @@ class User(
 
     @Column(name = "verification_expiry")
     var verificationExpiry: OffsetDateTime? = null,
+
+    @Column(name = "pending_email", length = 255)
+    var pendingEmail: String? = null,
+
+    @Column(name = "email_verification_code", length = 6)
+    var emailVerificationCode: String? = null,
+
+    @Column(name = "email_verification_expiry")
+    var emailVerificationExpiry: OffsetDateTime? = null,
 
     @Column(name = "created_at", updatable = false)
     var createdAt: OffsetDateTime? = null,

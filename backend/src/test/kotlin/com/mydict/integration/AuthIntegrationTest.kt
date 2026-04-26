@@ -3,6 +3,7 @@ package com.mydict.integration
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.mydict.entity.AuthType
 import com.mydict.entity.User
+import com.mydict.repository.ApiUsageRepository
 import com.mydict.repository.UserRepository
 import com.mydict.service.EmailService
 import com.mydict.service.GoogleOAuthService
@@ -38,6 +39,9 @@ class AuthIntegrationTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var passwordEncoder: PasswordEncoder
 
+    @Autowired
+    private lateinit var apiUsageRepository: ApiUsageRepository
+
     @MockBean
     private lateinit var emailService: EmailService
 
@@ -46,6 +50,7 @@ class AuthIntegrationTest : BaseIntegrationTest() {
 
     @BeforeEach
     fun cleanUp() {
+        apiUsageRepository.deleteAll()
         userRepository.deleteAll()
     }
 
@@ -373,6 +378,172 @@ class AuthIntegrationTest : BaseIntegrationTest() {
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.email").value("session@test.com"))
                 .andExpect(jsonPath("$.isVerified").value(true))
+        }
+    }
+
+    @Nested
+    inner class ApiUsageTests {
+        @Test
+        fun `signup creates API usage record`() {
+            val body = mapOf("name" to "User", "email" to "usage@test.com", "password" to "password123")
+
+            mockMvc.perform(
+                post("/api/auth/signup")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(body))
+            ).andExpect(status().isCreated)
+
+            val user = userRepository.findByEmail("usage@test.com")!!
+            val usage = apiUsageRepository.findByUserId(user.id!!)
+            assertNotNull(usage)
+            assertEquals(0, usage!!.usageCount)
+            assertEquals(50, usage.usageLimit)
+        }
+
+        @Test
+        fun `Google auth creates API usage record`() {
+            whenever(googleOAuthService.verifyIdToken("usage-token")).thenReturn(
+                GoogleUserInfo("g-usage", "gusage@test.com", "Usage User")
+            )
+
+            mockMvc.perform(
+                post("/api/auth/google")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"idToken": "usage-token"}""")
+            ).andExpect(status().isOk)
+
+            val user = userRepository.findByEmail("gusage@test.com")!!
+            val usage = apiUsageRepository.findByUserId(user.id!!)
+            assertNotNull(usage)
+            assertEquals(0, usage!!.usageCount)
+            assertEquals(50, usage.usageLimit)
+        }
+    }
+
+    @Nested
+    inner class ProfileTests {
+        private fun signUpAndGetToken(email: String = "profile@test.com"): String {
+            val body = mapOf("name" to "Profile User", "email" to email, "password" to "password123")
+            val result = mockMvc.perform(
+                post("/api/auth/signup")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(body))
+            ).andExpect(status().isCreated).andReturn()
+
+            val token = objectMapper.readTree(result.response.contentAsString)["token"].asText()
+
+            // Verify the user so they can access profile
+            val user = userRepository.findByEmail(email)!!
+            user.isVerified = true
+            userRepository.save(user)
+
+            return token
+        }
+
+        @Test
+        fun `get profile returns user info and usage`() {
+            val token = signUpAndGetToken()
+
+            mockMvc.perform(
+                get("/api/profile")
+                    .header("Authorization", "Bearer $token")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.name").value("Profile User"))
+                .andExpect(jsonPath("$.email").value("profile@test.com"))
+                .andExpect(jsonPath("$.usageCount").value(0))
+                .andExpect(jsonPath("$.usageLimit").value(50))
+        }
+
+        @Test
+        fun `update profile changes name and surname`() {
+            val token = signUpAndGetToken()
+
+            mockMvc.perform(
+                put("/api/profile")
+                    .header("Authorization", "Bearer $token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name": "Updated Name", "surname": "Updated Surname"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.name").value("Updated Name"))
+                .andExpect(jsonPath("$.surname").value("Updated Surname"))
+
+            val user = userRepository.findByEmail("profile@test.com")!!
+            assertEquals("Updated Name", user.fullName)
+            assertEquals("Updated Surname", user.surname)
+        }
+
+        @Test
+        fun `change password works with correct current password`() {
+            val token = signUpAndGetToken("pwchange@test.com")
+
+            mockMvc.perform(
+                put("/api/profile/password")
+                    .header("Authorization", "Bearer $token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"currentPassword": "password123", "newPassword": "newPassword456"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.message").value("Password updated successfully"))
+
+            // Verify can login with new password
+            mockMvc.perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"email": "pwchange@test.com", "password": "newPassword456"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.token").isNotEmpty)
+        }
+
+        @Test
+        fun `change password rejects wrong current password`() {
+            val token = signUpAndGetToken("pwreject@test.com")
+
+            mockMvc.perform(
+                put("/api/profile/password")
+                    .header("Authorization", "Bearer $token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"currentPassword": "wrongPassword", "newPassword": "newPassword456"}""")
+            )
+                .andExpect(status().isBadRequest)
+                .andExpect(jsonPath("$.error").value("Current password is incorrect"))
+        }
+
+        @Test
+        fun `email change flow with verification`() {
+            val token = signUpAndGetToken("emailchange@test.com")
+
+            // Initiate email change
+            mockMvc.perform(
+                post("/api/profile/email")
+                    .header("Authorization", "Bearer $token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"newEmail": "newemail@test.com"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.message").value("Verification code sent to new email"))
+
+            // Get the verification code
+            val user = userRepository.findByEmail("emailchange@test.com")!!
+            assertNotNull(user.pendingEmail)
+            assertEquals("newemail@test.com", user.pendingEmail)
+            val code = user.emailVerificationCode!!
+
+            // Verify email change
+            mockMvc.perform(
+                post("/api/profile/email/verify")
+                    .header("Authorization", "Bearer $token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"code": "$code"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.email").value("newemail@test.com"))
+
+            // Verify the email was actually changed
+            assertNull(userRepository.findByEmail("emailchange@test.com"))
+            assertNotNull(userRepository.findByEmail("newemail@test.com"))
         }
     }
 }

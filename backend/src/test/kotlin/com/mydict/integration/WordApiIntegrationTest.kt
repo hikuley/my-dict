@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.mydict.dto.*
 import com.mydict.entity.AuthType
 import com.mydict.entity.User
+import com.mydict.repository.ApiUsageRepository
 import com.mydict.repository.UserRepository
 import com.mydict.security.JwtTokenProvider
+import com.mydict.service.ApiUsageService
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,6 +38,12 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var userRepository: UserRepository
 
+    @Autowired
+    private lateinit var apiUsageRepository: ApiUsageRepository
+
+    @Autowired
+    private lateinit var apiUsageService: ApiUsageService
+
     private lateinit var authToken: String
 
     @BeforeAll
@@ -49,11 +57,13 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
                 isVerified = true,
             )
         )
+        apiUsageService.initializeUsage(user.id!!)
         authToken = jwtTokenProvider.generateToken(user.id!!, user.email)
     }
 
     @AfterAll
     fun cleanupAuth() {
+        apiUsageRepository.deleteAll()
         userRepository.deleteAll()
     }
 
@@ -248,6 +258,46 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
+    @Order(15)
+    fun `generate word increments usage count`() {
+        val user = userRepository.findByEmail("wordtest@integration.com")!!
+        val usageBefore = apiUsageRepository.findByUserId(user.id!!)!!.usageCount
+
+        mockMvc.perform(
+            post("/api/words/generate")
+                .header("Authorization", authHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"word": "usage-counter-test"}""")
+        )
+            .andExpect(status().isAccepted)
+
+        val usageAfter = apiUsageRepository.findByUserId(user.id!!)!!.usageCount
+        assertEquals(usageBefore + 1, usageAfter)
+    }
+
+    @Test
+    @Order(16)
+    fun `generate word returns 429 when limit exhausted`() {
+        val user = userRepository.findByEmail("wordtest@integration.com")!!
+        val usage = apiUsageRepository.findByUserId(user.id!!)!!
+        usage.usageCount = usage.usageLimit
+        apiUsageRepository.save(usage)
+
+        mockMvc.perform(
+            post("/api/words/generate")
+                .header("Authorization", authHeader())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"word": "should-be-rejected"}""")
+        )
+            .andExpect(status().isTooManyRequests)
+            .andExpect(jsonPath("$.error").value("Monthly API usage limit reached. Please try again next month."))
+
+        // Restore usage for subsequent tests
+        usage.usageCount = 0
+        apiUsageRepository.save(usage)
+    }
+
+    @Test
     @Order(100)
     fun `cleanup - delete remaining test word`() {
         mockMvc.perform(delete("/api/words/integration-test")
@@ -259,6 +309,8 @@ class WordApiIntegrationTest : BaseIntegrationTest() {
     @Order(101)
     fun `cleanup - delete ephemeral test word`() {
         mockMvc.perform(delete("/api/words/xyzzy-test-gen")
+                .header("Authorization", authHeader()))
+        mockMvc.perform(delete("/api/words/usage-counter-test")
                 .header("Authorization", authHeader()))
     }
 }
