@@ -19,6 +19,7 @@ class AuthService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val emailService: EmailService,
     private val googleOAuthService: GoogleOAuthService,
+    private val appleOAuthService: AppleOAuthService,
     private val apiUsageService: ApiUsageService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -77,7 +78,7 @@ class AuthService(
             ?: throw AuthException("Invalid email or password")
 
         if (user.authType != AuthType.manual) {
-            throw AuthException("This account uses Google sign-in")
+            throw AuthException("This account uses ${user.authType.name.replaceFirstChar { it.uppercase() }} sign-in")
         }
 
         if (!passwordEncoder.matches(password, user.passwordHash)) {
@@ -173,6 +174,44 @@ class AuthService(
         return AuthResponse(token, toUserResponse(user))
     }
 
+    @Transactional
+    fun appleAuth(request: AppleAuthRequest): AuthResponse {
+        val idToken = request.idToken ?: throw AuthException("Apple ID token is required")
+
+        val appleUserInfo = appleOAuthService.verifyIdToken(idToken)
+            ?: throw AuthException("Invalid Apple ID token")
+
+        // Check if user already exists by Apple ID
+        var user = userRepository.findByAppleId(appleUserInfo.appleId)
+
+        if (user == null) {
+            // Check if email is already registered with another auth method
+            val existingUser = userRepository.findByEmail(appleUserInfo.email)
+            if (existingUser != null) {
+                throw AuthException("An account with this email already exists. Please log in with your existing method.")
+            }
+
+            // Create new user — Apple sends name only on first auth, fallback to email
+            val fullName = request.name?.trim()?.takeIf { it.isNotBlank() }
+                ?: appleUserInfo.name
+                ?: appleUserInfo.email
+
+            user = User(
+                fullName = fullName,
+                email = appleUserInfo.email,
+                authType = AuthType.apple,
+                appleId = appleUserInfo.appleId,
+                isVerified = true, // Apple users are pre-verified
+            )
+            user = userRepository.save(user)
+            apiUsageService.initializeUsage(user.id!!)
+            log.info("[auth] Apple user registered: ${user.email}")
+        }
+
+        val token = jwtTokenProvider.generateToken(user.id!!, user.email)
+        return AuthResponse(token, toUserResponse(user))
+    }
+
     fun getCurrentUser(userId: java.util.UUID): UserResponse {
         val user = userRepository.findById(userId).orElseThrow { AuthException("User not found") }
         return toUserResponse(user)
@@ -220,7 +259,7 @@ class AuthService(
         val user = userRepository.findById(userId).orElseThrow { AuthException("User not found") }
 
         if (user.authType != AuthType.manual) {
-            throw AuthException("Password change is not available for Google accounts")
+            throw AuthException("Password change is not available for ${user.authType.name.replaceFirstChar { it.uppercase() }} accounts")
         }
 
         if (!passwordEncoder.matches(currentPassword, user.passwordHash)) {

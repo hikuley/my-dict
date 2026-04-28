@@ -195,6 +195,58 @@ test.describe('Profile Page E2E', () => {
     await expect(page.getByText('My Dictionary')).toBeVisible();
   });
 
+  test('should hide password section for Apple auth users', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.setItem('token', 'mock-token');
+      localStorage.setItem('user', JSON.stringify({
+        id: '00000000-0000-0000-0000-000000000098',
+        name: 'Apple User',
+        email: 'apple@test.com',
+        authType: 'apple',
+        isVerified: true,
+      }));
+    });
+    await page.reload();
+
+    await page.route('**/api/profile', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: '00000000-0000-0000-0000-000000000098',
+          name: 'Apple User',
+          surname: null,
+          email: 'apple@test.com',
+          authType: 'apple',
+          isVerified: true,
+          usageCount: 1,
+          usageLimit: 50,
+          periodStart: new Date().toISOString(),
+        }),
+      });
+    });
+
+    await page.route('**/api/words?*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ words: [], page: 1, limit: 20, total: 0, totalPages: 0 }),
+      });
+    });
+
+    const profileBtn = page.locator('button[title="Profile"]');
+    await profileBtn.click();
+
+    await expect(page.getByText('API Usage')).toBeVisible();
+    await expect(page.getByText('Personal Information')).toBeVisible();
+    await expect(page.getByText('Email', { exact: true })).toBeVisible();
+
+    // Password section should NOT be visible for Apple users
+    const passwordCard = page.locator('.ant-card').filter({ hasText: 'Update your password' });
+    await expect(passwordCard).toHaveCount(0);
+  });
+
   test('should hide password section for Google auth users', async ({ page }) => {
     await page.goto('/');
     await page.evaluate(() => {

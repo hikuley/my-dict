@@ -243,6 +243,41 @@ class AuthControllerTest {
     }
 
     @Nested
+    inner class AppleAuthTests {
+        @Test
+        fun `successful Apple auth returns 200`() {
+            val response = AuthResponse(
+                token = "apple-token",
+                user = UserResponse(testUserId, "Apple User", null, "apple@test.com", "apple", true),
+            )
+            whenever(authService.appleAuth(any())).thenReturn(response)
+
+            mockMvc.perform(
+                post("/api/auth/apple")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"idToken": "valid-apple-token", "name": "Apple User"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.token").value("apple-token"))
+                .andExpect(jsonPath("$.user.authType").value("apple"))
+                .andExpect(jsonPath("$.user.isVerified").value(true))
+        }
+
+        @Test
+        fun `failed Apple auth returns 400`() {
+            whenever(authService.appleAuth(any())).thenThrow(AuthException("Invalid Apple ID token"))
+
+            mockMvc.perform(
+                post("/api/auth/apple")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"idToken": "invalid-token"}""")
+            )
+                .andExpect(status().isBadRequest)
+                .andExpect(jsonPath("$.error").value("Invalid Apple ID token"))
+        }
+    }
+
+    @Nested
     inner class MeEndpointTests {
         @Test
         fun `unauthenticated request to me returns 401`() {

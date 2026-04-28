@@ -35,6 +35,9 @@ class AuthServiceTest {
     private lateinit var googleOAuthService: GoogleOAuthService
 
     @Mock
+    private lateinit var appleOAuthService: AppleOAuthService
+
+    @Mock
     private lateinit var apiUsageService: ApiUsageService
 
     @Captor
@@ -47,7 +50,7 @@ class AuthServiceTest {
     fun setUp() {
         authService = AuthService(
             userRepository, passwordEncoder, jwtTokenProvider,
-            emailService, googleOAuthService, apiUsageService,
+            emailService, googleOAuthService, appleOAuthService, apiUsageService,
         )
     }
 
@@ -534,6 +537,170 @@ class AuthServiceTest {
     }
 
     @Nested
+    inner class AppleAuthTests {
+        @Test
+        fun `successful Apple sign-in with new user`() {
+            val appleInfo = AppleUserInfo("apple-123", "apple@test.com", null)
+            whenever(appleOAuthService.verifyIdToken("valid-token")).thenReturn(appleInfo)
+            whenever(userRepository.findByAppleId("apple-123")).thenReturn(null)
+            whenever(userRepository.findByEmail("apple@test.com")).thenReturn(null)
+            whenever(userRepository.save(any<User>())).thenAnswer {
+                val user = it.arguments[0] as User
+                user.id = UUID.randomUUID()
+                user
+            }
+            whenever(jwtTokenProvider.generateToken(any<UUID>(), any<String>())).thenReturn("apple-token")
+
+            val response = authService.appleAuth(AppleAuthRequest("valid-token", "Apple User"))
+
+            assertEquals("apple-token", response.token)
+            assertEquals("apple", response.user.authType)
+            assertTrue(response.user.isVerified)
+            assertEquals("Apple User", response.user.name)
+
+            verify(userRepository).save(userCaptor.capture())
+            val savedUser = userCaptor.value
+            assertEquals(AuthType.apple, savedUser.authType)
+            assertTrue(savedUser.isVerified)
+            assertEquals("apple-123", savedUser.appleId)
+            assertNull(savedUser.passwordHash)
+        }
+
+        @Test
+        fun `Apple sign-in without name uses email as fallback`() {
+            val appleInfo = AppleUserInfo("apple-456", "apple2@test.com", null)
+            whenever(appleOAuthService.verifyIdToken("valid-token")).thenReturn(appleInfo)
+            whenever(userRepository.findByAppleId("apple-456")).thenReturn(null)
+            whenever(userRepository.findByEmail("apple2@test.com")).thenReturn(null)
+            whenever(userRepository.save(any<User>())).thenAnswer {
+                val user = it.arguments[0] as User
+                user.id = UUID.randomUUID()
+                user
+            }
+            whenever(jwtTokenProvider.generateToken(any<UUID>(), any<String>())).thenReturn("token")
+
+            val response = authService.appleAuth(AppleAuthRequest("valid-token", null))
+
+            assertEquals("apple2@test.com", response.user.name)
+        }
+
+        @Test
+        fun `Apple sign-in with existing Apple user returns token`() {
+            val existingUser = User(
+                id = UUID.randomUUID(),
+                fullName = "Apple User",
+                email = "apple@test.com",
+                authType = AuthType.apple,
+                appleId = "apple-123",
+                isVerified = true,
+            )
+            val appleInfo = AppleUserInfo("apple-123", "apple@test.com", null)
+            whenever(appleOAuthService.verifyIdToken("valid-token")).thenReturn(appleInfo)
+            whenever(userRepository.findByAppleId("apple-123")).thenReturn(existingUser)
+            whenever(jwtTokenProvider.generateToken(existingUser.id!!, "apple@test.com")).thenReturn("existing-token")
+
+            val response = authService.appleAuth(AppleAuthRequest("valid-token", null))
+
+            assertEquals("existing-token", response.token)
+            verify(userRepository, never()).save(any())
+        }
+
+        @Test
+        fun `Apple auth rejects invalid ID token`() {
+            whenever(appleOAuthService.verifyIdToken("invalid-token")).thenReturn(null)
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.appleAuth(AppleAuthRequest("invalid-token", null))
+            }
+            assertEquals("Invalid Apple ID token", exception.message)
+        }
+
+        @Test
+        fun `Apple auth rejects when email already registered with manual auth`() {
+            val appleInfo = AppleUserInfo("apple-789", "existing@test.com", null)
+            whenever(appleOAuthService.verifyIdToken("valid-token")).thenReturn(appleInfo)
+            whenever(userRepository.findByAppleId("apple-789")).thenReturn(null)
+            whenever(userRepository.findByEmail("existing@test.com")).thenReturn(
+                User(id = UUID.randomUUID(), email = "existing@test.com", authType = AuthType.manual)
+            )
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.appleAuth(AppleAuthRequest("valid-token", null))
+            }
+            assertTrue(exception.message!!.contains("already exists"))
+        }
+
+        @Test
+        fun `Apple auth rejects missing ID token`() {
+            val exception = assertThrows(AuthException::class.java) {
+                authService.appleAuth(AppleAuthRequest(null, null))
+            }
+            assertEquals("Apple ID token is required", exception.message)
+        }
+    }
+
+    @Nested
+    inner class AppleAuthUsageInitTests {
+        @Test
+        fun `Apple auth initializes API usage for new user`() {
+            val appleInfo = AppleUserInfo("apple-123", "apple@test.com", null)
+            whenever(appleOAuthService.verifyIdToken("valid-token")).thenReturn(appleInfo)
+            whenever(userRepository.findByAppleId("apple-123")).thenReturn(null)
+            whenever(userRepository.findByEmail("apple@test.com")).thenReturn(null)
+            whenever(userRepository.save(any<User>())).thenAnswer {
+                val user = it.arguments[0] as User
+                user.id = UUID.randomUUID()
+                user
+            }
+            whenever(jwtTokenProvider.generateToken(any<UUID>(), any<String>())).thenReturn("token")
+
+            authService.appleAuth(AppleAuthRequest("valid-token", "Apple User"))
+
+            verify(apiUsageService).initializeUsage(any<UUID>())
+        }
+
+        @Test
+        fun `Apple auth does not initialize usage for existing user`() {
+            val existingUser = User(
+                id = UUID.randomUUID(),
+                fullName = "Apple User",
+                email = "apple@test.com",
+                authType = AuthType.apple,
+                appleId = "apple-123",
+                isVerified = true,
+            )
+            whenever(appleOAuthService.verifyIdToken("valid-token")).thenReturn(
+                AppleUserInfo("apple-123", "apple@test.com", null)
+            )
+            whenever(userRepository.findByAppleId("apple-123")).thenReturn(existingUser)
+            whenever(jwtTokenProvider.generateToken(existingUser.id!!, "apple@test.com")).thenReturn("token")
+
+            authService.appleAuth(AppleAuthRequest("valid-token", null))
+
+            verify(apiUsageService, never()).initializeUsage(any())
+        }
+    }
+
+    @Nested
+    inner class LoginAppleUserTests {
+        @Test
+        fun `login rejects Apple auth user trying email login`() {
+            val user = User(
+                id = UUID.randomUUID(),
+                email = "apple@example.com",
+                authType = AuthType.apple,
+                appleId = "apple-123",
+            )
+            whenever(userRepository.findByEmail("apple@example.com")).thenReturn(user)
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.login(LoginRequest("apple@example.com", "password123"))
+            }
+            assertEquals("This account uses Apple sign-in", exception.message)
+        }
+    }
+
+    @Nested
     inner class UpdateProfileTests {
         private val userId = UUID.randomUUID()
         private val existingUser = User(
@@ -643,6 +810,23 @@ class AuthServiceTest {
                 authService.updatePassword(userId, UpdatePasswordRequest("password", "newPassword456"))
             }
             assertEquals("Password change is not available for Google accounts", exception.message)
+        }
+
+        @Test
+        fun `rejects password change for Apple users`() {
+            val user = User(
+                id = userId,
+                fullName = "Apple User",
+                email = "apple@test.com",
+                authType = AuthType.apple,
+                appleId = "apple-123",
+            )
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+            val exception = assertThrows(AuthException::class.java) {
+                authService.updatePassword(userId, UpdatePasswordRequest("password", "newPassword456"))
+            }
+            assertEquals("Password change is not available for Apple accounts", exception.message)
         }
     }
 

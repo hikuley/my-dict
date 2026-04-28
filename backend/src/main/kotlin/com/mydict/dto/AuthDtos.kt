@@ -29,6 +29,11 @@ data class GoogleAuthRequest(
     val idToken: String?,
 )
 
+data class AppleAuthRequest(
+    val idToken: String?,
+    val name: String?,
+)
+
 // --- Auth Responses ---
 
 data class AuthResponse(

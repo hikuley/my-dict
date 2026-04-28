@@ -113,6 +113,7 @@ jobs:
           JWT_EXPIRATION_MS: 86400000
           GOOGLE_CLIENT_ID: test-google-client-id
           GOOGLE_CLIENT_SECRET: test-google-client-secret
+          APPLE_CLIENT_ID: test-apple-client-id
           MAIL_HOST: localhost
           MAIL_PORT: 1025
         run: ./gradlew integrationTest --no-daemon
@@ -247,6 +248,7 @@ jobs:
           JWT_SECRET: ci-test-jwt-secret-key-that-is-at-least-32-characters-long
           JWT_EXPIRATION_MS: 86400000
           GOOGLE_CLIENT_ID: test-google-client-id
+          APPLE_CLIENT_ID: test-apple-client-id
           MAIL_HOST: localhost
           MAIL_PORT: 1025
         run: |
@@ -398,6 +400,7 @@ jobs:
           JWT_SECRET: ci-test-jwt-secret-key-that-is-at-least-32-characters-long
           JWT_EXPIRATION_MS: 86400000
           GOOGLE_CLIENT_ID: test-google-client-id
+          APPLE_CLIENT_ID: test-apple-client-id
           MAIL_HOST: localhost
           MAIL_PORT: 1025
         run: |
@@ -572,6 +575,7 @@ jobs:
           JWT_SECRET: ci-test-jwt-secret-key-that-is-at-least-32-characters-long
           JWT_EXPIRATION_MS: 86400000
           GOOGLE_CLIENT_ID: test-google-client-id
+          APPLE_CLIENT_ID: test-apple-client-id
           MAIL_HOST: localhost
           MAIL_PORT: 1025
         run: |

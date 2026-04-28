@@ -49,6 +49,7 @@ spring:
 
 app:
   anthropic-api-key: ${ANTHROPIC_API_KEY:}
+  apple-client-id: ${APPLE_CLIENT_ID:}
   jwt-secret: ${JWT_SECRET:default-dev-secret-key-change-in-production-min-32-chars}
   jwt-expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   frontend-url: ${FRONTEND_URL:http://localhost:5173}

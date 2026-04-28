@@ -5,7 +5,7 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 enum class AuthType {
-    manual, google
+    manual, google, apple
 }
 
 @Entity
@@ -34,6 +34,9 @@ class User(
 
     @Column(name = "google_id", unique = true, length = 255)
     var googleId: String? = null,
+
+    @Column(name = "apple_id", unique = true, length = 255)
+    var appleId: String? = null,
 
     @Column(name = "is_verified", nullable = false)
     var isVerified: Boolean = false,

@@ -8,6 +8,8 @@ import com.mydict.repository.UserRepository
 import com.mydict.service.EmailService
 import com.mydict.service.GoogleOAuthService
 import com.mydict.service.GoogleUserInfo
+import com.mydict.service.AppleOAuthService
+import com.mydict.service.AppleUserInfo
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import org.mockito.kotlin.*
@@ -47,6 +49,9 @@ class AuthIntegrationTest : BaseIntegrationTest() {
 
     @MockBean
     private lateinit var googleOAuthService: GoogleOAuthService
+
+    @MockBean
+    private lateinit var appleOAuthService: AppleOAuthService
 
     @BeforeEach
     fun cleanUp() {
@@ -382,6 +387,88 @@ class AuthIntegrationTest : BaseIntegrationTest() {
     }
 
     @Nested
+    inner class AppleAuthFlowTests {
+        @Test
+        fun `Apple sign-in creates verified user`() {
+            whenever(appleOAuthService.verifyIdToken("apple-id-token")).thenReturn(
+                AppleUserInfo("a-123", "apple@test.com", null)
+            )
+
+            mockMvc.perform(
+                post("/api/auth/apple")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"idToken": "apple-id-token", "name": "Apple User"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.token").isNotEmpty)
+                .andExpect(jsonPath("$.user.authType").value("apple"))
+                .andExpect(jsonPath("$.user.isVerified").value(true))
+
+            val user = userRepository.findByEmail("apple@test.com")
+            assertNotNull(user)
+            assertEquals(AuthType.apple, user!!.authType)
+            assertTrue(user.isVerified)
+            assertEquals("a-123", user.appleId)
+            assertNull(user.passwordHash)
+        }
+
+        @Test
+        fun `Apple users skip verification - is_verified is true on creation`() {
+            whenever(appleOAuthService.verifyIdToken("token")).thenReturn(
+                AppleUserInfo("a-456", "askip@test.com", null)
+            )
+
+            mockMvc.perform(
+                post("/api/auth/apple")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"idToken": "token", "name": "Skip User"}""")
+            ).andExpect(status().isOk)
+
+            val user = userRepository.findByEmail("askip@test.com")
+            assertTrue(user!!.isVerified)
+            assertNull(user.verificationCode)
+        }
+
+        @Test
+        fun `failed Apple OAuth returns error`() {
+            whenever(appleOAuthService.verifyIdToken("bad-token")).thenReturn(null)
+
+            mockMvc.perform(
+                post("/api/auth/apple")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"idToken": "bad-token"}""")
+            )
+                .andExpect(status().isBadRequest)
+                .andExpect(jsonPath("$.error").value("Invalid Apple ID token"))
+        }
+
+        @Test
+        fun `Apple auth returns correct session after success`() {
+            whenever(appleOAuthService.verifyIdToken("session-token")).thenReturn(
+                AppleUserInfo("a-789", "asession@test.com", null)
+            )
+
+            val result = mockMvc.perform(
+                post("/api/auth/apple")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"idToken": "session-token", "name": "Session User"}""")
+            )
+                .andExpect(status().isOk)
+                .andReturn()
+
+            val token = objectMapper.readTree(result.response.contentAsString)["token"].asText()
+
+            mockMvc.perform(
+                get("/api/auth/me")
+                    .header("Authorization", "Bearer $token")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.email").value("asession@test.com"))
+                .andExpect(jsonPath("$.isVerified").value(true))
+        }
+    }
+
+    @Nested
     inner class ApiUsageTests {
         @Test
         fun `signup creates API usage record`() {
@@ -413,6 +500,25 @@ class AuthIntegrationTest : BaseIntegrationTest() {
             ).andExpect(status().isOk)
 
             val user = userRepository.findByEmail("gusage@test.com")!!
+            val usage = apiUsageRepository.findByUserId(user.id!!)
+            assertNotNull(usage)
+            assertEquals(0, usage!!.usageCount)
+            assertEquals(50, usage.usageLimit)
+        }
+
+        @Test
+        fun `Apple auth creates API usage record`() {
+            whenever(appleOAuthService.verifyIdToken("usage-token")).thenReturn(
+                AppleUserInfo("a-usage", "ausage@test.com", null)
+            )
+
+            mockMvc.perform(
+                post("/api/auth/apple")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"idToken": "usage-token", "name": "Usage User"}""")
+            ).andExpect(status().isOk)
+
+            val user = userRepository.findByEmail("ausage@test.com")!!
             val usage = apiUsageRepository.findByUserId(user.id!!)
             assertNotNull(usage)
             assertEquals(0, usage!!.usageCount)

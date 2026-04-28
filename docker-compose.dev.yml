@@ -83,6 +83,7 @@ services:
       context: ./frontend
       args:
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        VITE_APPLE_CLIENT_ID: ${APPLE_CLIENT_ID}
     restart: unless-stopped
     logging:
       driver: awslogs

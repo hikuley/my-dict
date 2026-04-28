@@ -39,6 +39,7 @@ spring:
 
 app:
   anthropic-api-key: test-key
+  apple-client-id: test-apple-client-id
   jwt-secret: test-jwt-secret-key-that-is-at-least-32-characters-long
   jwt-expiration-ms: 86400000
   frontend-url: http://localhost:3000

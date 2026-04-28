@@ -57,6 +57,17 @@ export const googleAuth = createAsyncThunk('auth/googleAuth', async ({ idToken }
   return data;
 });
 
+export const appleAuth = createAsyncThunk('auth/appleAuth', async ({ idToken, name }, { rejectWithValue }) => {
+  const res = await fetch(`${API_BASE}/apple`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken, name }),
+  });
+  const data = await res.json();
+  if (!res.ok) return rejectWithValue(data.error || 'Apple auth failed');
+  return data;
+});
+
 export const fetchCurrentUser = createAsyncThunk('auth/fetchCurrentUser', async (_, { getState, rejectWithValue }) => {
   const { auth } = getState();
   const res = await fetch(`${API_BASE}/me`, {
@@ -140,6 +151,20 @@ const authSlice = createSlice({
         localStorage.setItem('user', JSON.stringify(action.payload.user));
       })
       .addCase(googleAuth.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload;
+      });
+    // Apple Auth
+    builder
+      .addCase(appleAuth.pending, (state) => { state.status = 'loading'; state.error = null; })
+      .addCase(appleAuth.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.token = action.payload.token;
+        state.user = action.payload.user;
+        localStorage.setItem('token', action.payload.token);
+        localStorage.setItem('user', JSON.stringify(action.payload.user));
+      })
+      .addCase(appleAuth.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload;
       });

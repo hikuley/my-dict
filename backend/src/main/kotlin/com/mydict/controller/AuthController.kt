@@ -63,6 +63,15 @@ class AuthController(
         }
     }
 
+    @PostMapping("/apple")
+    fun appleAuth(@RequestBody request: AppleAuthRequest): ResponseEntity<Any> {
+        return try {
+            ResponseEntity.ok(authService.appleAuth(request))
+        } catch (e: AuthException) {
+            ResponseEntity.badRequest().body(ErrorResponse(e.message ?: "Apple auth failed"))
+        }
+    }
+
     @GetMapping("/me")
     fun getCurrentUser(@AuthenticationPrincipal user: User?): ResponseEntity<Any> {
         if (user == null) {

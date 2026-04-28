@@ -227,9 +227,72 @@ test.describe('Authentication E2E', () => {
     });
   });
 
+  test.describe('Apple OAuth Flow', () => {
+    test('should have Apple Sign-In button', async ({ page }) => {
+      await page.goto('/');
+      await expect(page.getByText('Continue with Apple')).toBeVisible();
+    });
+
+    test('should navigate to word list after successful Apple auth', async ({ page }) => {
+      await page.goto('/');
+
+      // Mock Apple auth endpoint
+      await page.route('**/api/auth/apple', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            token: 'apple-jwt-token',
+            user: {
+              id: '00000000-0000-0000-0000-000000000010',
+              name: 'Apple User',
+              email: 'apple@test.com',
+              authType: 'apple',
+              isVerified: true,
+            },
+          }),
+        });
+      });
+
+      // Mock words API
+      await page.route('**/api/words?*', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ words: [], page: 1, limit: 20, total: 0, totalPages: 0 }),
+        });
+      });
+
+      // Simulate Apple auth by directly setting localStorage
+      await page.evaluate(() => {
+        localStorage.setItem('token', 'apple-jwt-token');
+        localStorage.setItem('user', JSON.stringify({
+          id: '00000000-0000-0000-0000-000000000010',
+          name: 'Apple User',
+          email: 'apple@test.com',
+          authType: 'apple',
+          isVerified: true,
+        }));
+      });
+      await page.reload();
+
+      await expect(page.getByText('My Dictionary')).toBeVisible();
+      await expect(page.getByText('Apple User')).toBeVisible();
+    });
+  });
+
   test.describe('Logout', () => {
     test('should return to auth page after logout', async ({ page }) => {
       await page.goto('/');
+
+      // Mock words API before setting auth state
+      await page.route('**/api/words?*', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ words: [], page: 1, limit: 20, total: 0, totalPages: 0 }),
+        });
+      });
 
       // Set authenticated user
       await page.evaluate(() => {
@@ -241,16 +304,6 @@ test.describe('Authentication E2E', () => {
           authType: 'manual',
           isVerified: true,
         }));
-      });
-      await page.reload();
-
-      // Mock words API
-      await page.route('**/api/words?*', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ words: [], page: 1, limit: 20, total: 0, totalPages: 0 }),
-        });
       });
 
       await page.reload();

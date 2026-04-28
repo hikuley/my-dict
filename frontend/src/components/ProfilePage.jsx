@@ -120,7 +120,7 @@ const ProfilePage = ({ onBack }) => {
   }
 
   const usagePercent = profile ? Math.round((profile.usageCount / profile.usageLimit) * 100) : 0;
-  const isGoogleUser = user?.authType === 'google';
+  const isGoogleUser = ['google', 'apple'].includes(user?.authType);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#f5f5f5' }}>
